@@ -1,0 +1,79 @@
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"/>
+  <script src="/helper.js"></script>
+  <script>
+  </script>
+  <style>
+    #score-chart{
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    .bar-parent {
+      display: flex;
+    }
+    .bar-parent > div {
+      padding: 2px;
+    }
+    .name {
+      width: 150px;
+    }
+    .bar { 
+      height: 50px; 
+      background-color: coral;
+      color: whitesmoke;
+      font-size: 1.5em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Game <%= name %></h1>
+  <table>
+    <thead>
+    <tr>
+      <th>Round</th>
+      <% chart[0].games.forEach((g, i) => { %>
+        <th>Table <%= i + 1 %></th>
+      <% }) %>
+      <% if (chart[0].byes.length > 0) { %>
+        <th>Byes</th>
+      <% } %>
+    </tr>
+    </thead>
+    <tbody>
+    <% chart.forEach((round, i) => { %>
+      <tr>
+        <td><%= i + 1%></td>
+        <% round.games.forEach(game => { %>
+          <td>
+            <div class='team'>
+              <%= game[0][0] %>, <%= game[0][1] %>
+            </div>
+            <div class='versus'>versus</div>
+            <div class='team'>
+              <%= game[1][0] %>, <%= game[1][1] %>
+            </div>
+          </td>
+        <% }) %>
+        <td>
+          <%- round.byes.join('<br>') %>
+        </td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+  <% let max = points.map(p => p.points).reduce((a, b) => a > b ? a : b, 1) %>
+  <div id="score-chart">
+    <% points.forEach(player => { %>
+      <div class="bar-parent">
+        <div class="name"><%= player.name %></div>
+        <div style="width:500px">
+          <div class="bar" style="width:<%= player.points / max * 100 %>%"><%= player.points %></div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</body>
+</html>

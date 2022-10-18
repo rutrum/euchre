@@ -1,0 +1,42 @@
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"/>
+  <script src="/helper.js"></script>
+  <script>
+    update_names = () => {
+      player_names = []
+      for (let i = 0; i < <%= total_players %>; i++) {
+        player_name = document.querySelector(`[name=player${i+1}]`).value
+        player_names.push({
+          game_id: <%= game_id %>,
+          position: i+1,
+          name: player_name,
+        })
+      }
+      postData('/game/<%= game_id %>/edit', {
+        id: <%= game_id %>,
+        players: player_names
+      }).then(res => {
+        if (res.error) document.querySelector('.error_msg').text = res.error
+
+        document.querySelector('#response').style.display = 'initial'
+      })
+    }
+  </script>
+</head>
+<body>
+  <h1>Game <%= name %></h1>
+  <% players.forEach(player => { %>
+    <label>
+      Player <%= player.position %>
+      <input name="player<%= player.position %>" type="text" value="<%= player.name || 'Player ' + player.position %>">
+    </label>
+  <% }) %>
+  <button onclick="update_names()">Update names</button>
+  <div class="error_msg"></div>
+  <div id="response" style="display:none">
+    <p>Names updated.</p>  
+    <p>You can view the game at <a href="/game/<%= game_id %>">/game/<%= game_id %></a>
+  </div>
+</body>
+</html>

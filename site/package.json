@@ -1,0 +1,19 @@
+{
+  "name": "site",
+  "version": "1.0.0",
+  "description": "Desired features: * admin portal to set number of players, set names     * start game, etc * login screen where you just pick your player name * player screen shows game specific details and player specific",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "connect-livereload": "^0.6.1",
+    "ejs": "^3.1.8",
+    "express": "^4.18.2",
+    "livereload": "^0.9.3",
+    "node-mysql": "^0.4.2"
+  }
+}

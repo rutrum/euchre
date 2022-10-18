@@ -1,0 +1,43 @@
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"/>
+  <script src="/helper.js"></script>
+  <script>
+    new_game = () => {
+      let payload = {
+        players: document.querySelector('[name=players]').value,
+        name: document.querySelector('[name=name]').value,
+      }
+      postData('/game', payload)
+        .then(res => {
+          if (res.error) document.querySelector("#error").text = res.error
+
+          document.querySelector("#response").style.display = 'initial';
+          document.querySelector("#edit_url").text = res.edit_url;
+          document.querySelector("#edit_url").href = res.edit_url;
+        })
+    }
+  </script>
+</head>
+<body>
+  Create a new game.
+  <label>
+    Name:
+    <input name="name" type="text"/>
+  </label>
+  <label>
+    Players:
+    <select name="players">
+      <% sizes.forEach(size => { %>
+        <option value="<%= size %>"><%= size %></option>
+      <% }) %>
+    </select>
+  </label>
+  <button onclick="new_game()">Start tournament</button>
+  <div id="error"></div>
+  <div id="response" style="display:none">
+    <p>Tournament created!</p>  
+    <p>You can edit the players at <a id="edit_url"></a>
+  </div>
+</body>
+</html>

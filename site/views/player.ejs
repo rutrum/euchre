@@ -1,0 +1,65 @@
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"/>
+  <script src="/helper.js"></script>
+  <script>
+    save = (i) => {
+      let point = document.querySelector("[name=points-"+i+"]").value
+      console.log("saving " + point + " for round " + i)
+      postData('/game/<%= game_id %>/player/<%= position %>', {
+        round: i + 1,
+        point: point
+      }).then(res => {
+        if (res.error) return
+        document.querySelector('#round-' + i).textContent = "Saved"
+        console.log(document.querySelector('#round-' + i))
+      })
+    }
+
+    changed = (i) => {
+      document.querySelector('#round-' + i).textContent = "Save"
+    }
+  </script>
+  <style>
+    .bye-round { text-align: center; font-style: italic }
+    .points-input { width: 100% }
+  </style>
+</head>
+<body>
+  <h1>Player <%= name %></h1>
+  <table>
+    <thead>
+    <tr>
+      <th>Round</th>
+      <th>Table</th>
+      <th>Partner</th>
+      <th>Opponents</th>
+      <th>Points Earned</th>
+    </tr>
+    </thead>
+    <tbody>
+    <% chart.forEach((round, i) => { %>
+      <tr>
+        <td><%= i + 1%></td>
+        <%let game_ind = round.games.map((g, i) => [g, i]).filter(g => g[0].flat().includes(name))[0] %>
+        <% console.log(game_ind) %>
+        <% if (game_ind) { %>
+          <%let g = game_ind[0] %>
+          <%let partner = g[0][0] == name ? g[0][1] : g[0][1] == name ? g[0][0] : g[1][0] == name ? g[1][1] : g[1][0] %>
+          <%let opps = g[0][0] == name ? g[1] : g[0][1] == name ? g[1] : g[0] %>
+          <td><%= game_ind[1] + 1%></td>
+          <td><%= partner %></td>
+          <td><%= opps[0] + ' and ' + opps[1] %></td>
+          <td>
+            <input class="points-input" type="number" name="<%= 'points-' + i%>" value="<%= points[i] || 0%>" onchange="changed(<%=i%>)" min=0></input>
+          </td>
+          <td><button id="round-<%=i%>" onclick="save(<%=i%>)">-</button></td>
+        <% } else { %>
+          <td class="bye-round" colspan="5">bye</td>
+        <% } %>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</body>
+</html>
