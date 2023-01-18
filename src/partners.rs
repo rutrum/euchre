@@ -17,6 +17,16 @@ impl Partners {
     pub fn has_player(&self, p: Player) -> bool {
         self.0 == p || self.1 == p
     }
+
+    pub fn partner_of(&self, p: Player) -> Option<Player> {
+        if self.0 == p {
+            Some(self.1)
+        } else if self.1 == p {
+            Some(self.0)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<String> for Partners {

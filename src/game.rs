@@ -9,7 +9,7 @@ macro_rules! game {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Game(Partners, Partners);
+pub struct Game(pub Partners, pub Partners);
 
 impl Game {
     pub fn new(p1: Partners, p2: Partners) -> Game {
@@ -35,6 +35,16 @@ impl Game {
 
     pub fn partners(&self) -> Vec<Partners> {
         vec![self.0, self.1]
+    }
+
+    pub fn partner_of(&self, player: Player) -> Option<Player> {
+        if self.0.has_player(player) {
+            self.0.partner_of(player)
+        } else if self.1.has_player(player) {
+            self.1.partner_of(player)
+        } else {
+            None
+        }
     }
 }
 

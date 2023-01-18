@@ -3,6 +3,8 @@ use std::fmt::{Display, Formatter};
 mod player;
 mod partners;
 mod game;
+mod error;
+mod validity;
 
 pub use player::Player;
 pub use partners::Partners;
@@ -73,15 +75,11 @@ impl GamelessRound {
 
 impl Display for GamelessRound {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
-        let games_str = self.games.iter()
+        let games_str = self.partners.iter()
             .map(|g| format!("{}", g))
             .collect::<Vec<String>>()
             .join(" ");
-        if self.byes.is_empty() {
-            write!(f, "{}", games_str)
-        } else {
-            write!(f, "{}; {:?}", games_str, self.byes)
-        }
+        write!(f, "{}", games_str)
     }
 }
 
@@ -107,6 +105,10 @@ impl Round {
 
     fn partners(&self) -> Vec<Partners> {
         self.games.iter().flat_map(|g| g.partners()).collect()
+    }
+
+    fn find_game_with_player(&self, p: Player) -> &Game {
+        self.games.iter().find(|g| g.has_player(p)).unwrap()
     }
 }
 
@@ -141,6 +143,10 @@ impl RotationChart {
         } else {
             self.0[0].players()
         }
+    }
+
+    pub fn games_with_player(&self, p: Player) -> Vec<Game> {
+        self.0.iter().map(|round| *round.find_game_with_player(p)).collect()
     }
 }
 

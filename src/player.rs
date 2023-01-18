@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd)]
 pub struct Player(pub i32);
 
 impl Player {
