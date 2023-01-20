@@ -1,48 +1,74 @@
 use std::fmt::{Display, Formatter};
 
+use crate::{Sort, Serialization};
+use crate::container::*;
 use crate::Player;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, Hash, PartialOrd)]
 pub struct Partners(pub Player, pub Player);
 
 impl Partners {
+    /// Creates a new pair of players in sorted order.
     pub fn new(p1: Player, p2: Player) -> Self {
-        if p1 < p2 {
-            Partners(p1, p2)
-        } else {
-            Partners(p2, p1)
-        }
+        let partners = Partners(p1, p2);
+        partners.sort()
     }
 
-    pub fn has_player(&self, p: Player) -> bool {
-        self.0 == p || self.1 == p
-    }
-
-    pub fn partner_of(&self, p: Player) -> Option<Player> {
-        if self.0 == p {
-            Some(self.1)
-        } else if self.1 == p {
-            Some(self.0)
-        } else {
-            None
+    /// Replaces `replace` with `with` if `replace` is in the pair.
+    /// Also sorts the result after replacement.
+    pub fn substitute(mut self, replace: Player, with: Player) -> Self {
+        if self.0 == replace {
+            self.0 = with;
+        } else if self.1 == replace {
+            self.1 = with;
         }
+        self.sort()
     }
 }
 
-impl From<String> for Partners {
-    /// Converts "3+5" into Player(3) and Player(5)
-    fn from(s: String) -> Self {
-        let ints: Vec<i32> = s.split("+")
-            .collect::<Vec<&str>>()
-            .iter()
-            .map(|x| x.parse().unwrap())
-            .collect();
-        return Self::new(Player(ints[0]), Player(ints[1]));
+impl PlayerContainer for Partners {
+    fn players(&self) -> Vec<&Player> {
+        vec![&self.0, &self.1]
+    }
+
+    fn from_players(players: Vec<Player>) -> Self {
+        Partners(players[0], players[1])
+    }
+}
+
+impl PartnersContainer for Partners {
+    fn partners(&self) -> Vec<&Partners> {
+        vec![self]
     }
 }
 
 impl Display for Partners {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
-        write!(f, "{}{}", self.0, self.1)
+        write!(f, "{}+{}", self.0, self.1)
+    }
+}
+
+impl Serialization for Partners {
+    fn serialize(self) -> String {
+        format!("{}+{}", self.0, self.1)
+    }
+
+    fn deserialize(s: String) -> Result<Self, ()> {
+        let players = s.split('+')
+            .map(|s| Player::deserialize(s.to_string()))
+            .collect::<Result<Vec<Player>, ()>>()?;
+        Ok(Self::new(
+           *players.get(0).ok_or(())?,
+           *players.get(1).ok_or(())?,
+        ))
+    }
+}
+
+impl Sort for Partners {
+    fn sort(mut self) -> Self {
+        if self.1 < self.0 {
+            std::mem::swap(&mut self.1, &mut self.0)
+        }
+        self
     }
 }

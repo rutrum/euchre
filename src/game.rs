@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::{Partners, Player};
+use crate::{Sort, Serialization};
+use crate::container::*;
 
 #[macro_export]
 macro_rules! game {
@@ -8,55 +10,79 @@ macro_rules! game {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Game(pub Partners, pub Partners);
 
 impl Game {
+    /// Creates a new game with partners in sorted order.
     pub fn new(p1: Partners, p2: Partners) -> Game {
-        if p1 < p2 {
-            Game(p1, p2)
-        } else {
-            Game(p2, p1)
+        let game = Game(p1, p2);
+        game.sort()
+    }
+
+    /// Replaces `replace` with `with` if `replace` player is in the game.
+    /// Also sorts the result after replacement.
+    pub fn substitute_player(mut self, replace: Player, with: Player) -> Self {
+        self.0 = self.0.substitute(replace, with);
+        self.1 = self.1.substitute(replace, with);
+        self.sort()
+    }
+
+    /// Replaces `replace` with `with` if `replace` partners is in the game.
+    /// Also sorts the result after replacement.
+    pub fn substitute_partners(mut self, replace: Partners, with: Partners) -> Self {
+        if self.0 == replace {
+            self.0 = with;
+        } else if self.1 == replace {
+            self.1 = with;
         }
-    }
-
-    pub fn has_player(&self, p: Player) -> bool {
-        self.0.has_player(p) || self.1.has_player(p)
-    }
-
-    pub fn players(&self) -> Vec<Player> {
-        vec![
-            self.0.0,
-            self.0.1,
-            self.1.0,
-            self.1.1,
-        ]
-    }
-
-    pub fn partners(&self) -> Vec<Partners> {
-        vec![self.0, self.1]
-    }
-
-    pub fn partner_of(&self, player: Player) -> Option<Player> {
-        if self.0.has_player(player) {
-            self.0.partner_of(player)
-        } else if self.1.has_player(player) {
-            self.1.partner_of(player)
-        } else {
-            None
-        }
+        self.sort()
     }
 }
 
-impl From<String> for Game {
-    /// Converts "3+5v1+2" into partners 3+5 vs 1+2
-    fn from(s: String) -> Self {
-        let partners: Vec<Partners> = s.split("v")
-            .collect::<Vec<&str>>()
-            .iter()
-            .map(|&x| x.to_string().into())
-            .collect();
-        return Self::new(partners[0], partners[1]);
+impl PlayerContainer for Game {
+    fn players(&self) -> Vec<&Player> {
+        vec![
+            &self.0.0,
+            &self.0.1,
+            &self.1.0,
+            &self.1.1,
+        ]
+    }
+
+    fn from_players(partners: Vec<Player>) -> Self {
+        Game(
+            Partners::from_players(partners[0..=1].to_vec()),
+            Partners::from_players(partners[2..=3].to_vec()),
+        )
+    }
+}
+
+impl PartnersContainer for Game {
+    fn partners(&self) -> Vec<&Partners> {
+        vec![&self.0, &self.1]
+    }
+}
+
+impl GameContainer for Game {
+    fn games(&self) -> Vec<&Game> {
+        vec![self]
+    }
+}
+
+impl Serialization for Game {
+    fn serialize(self) -> String {
+        format!("{}v{}", self.0, self.1)
+    }
+
+    fn deserialize(s: String) -> Result<Self, ()> {
+        let partners = s.split('+')
+            .map(|s| Partners::deserialize(s.to_string()))
+            .collect::<Result<Vec<Partners>, ()>>()?;
+        Ok(Self::new(
+            *partners.get(0).ok_or(())?,
+            *partners.get(1).ok_or(())?,
+        ))
     }
 }
 
@@ -66,3 +92,11 @@ impl Display for Game {
     }
 }
 
+impl Sort for Game {
+    fn sort(mut self) -> Self {
+        if self.1 < self.0 {
+            std::mem::swap(&mut self.1, &mut self.0);
+        }
+        self
+    }
+}
