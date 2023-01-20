@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 
-use crate::{Sort, Serialization};
 use crate::container::*;
 use crate::Player;
+use crate::{Serialization, Sort};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, Hash, PartialOrd)]
 pub struct Partners(pub Player, pub Player);
@@ -30,10 +30,6 @@ impl PlayerContainer for Partners {
     fn players(&self) -> Vec<&Player> {
         vec![&self.0, &self.1]
     }
-
-    fn from_players(players: Vec<Player>) -> Self {
-        Partners(players[0], players[1])
-    }
 }
 
 impl PartnersContainer for Partners {
@@ -43,7 +39,7 @@ impl PartnersContainer for Partners {
 }
 
 impl Display for Partners {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}+{}", self.0, self.1)
     }
 }
@@ -54,12 +50,13 @@ impl Serialization for Partners {
     }
 
     fn deserialize(s: String) -> Result<Self, ()> {
-        let players = s.split('+')
+        let players = s
+            .split('+')
             .map(|s| Player::deserialize(s.to_string()))
             .collect::<Result<Vec<Player>, ()>>()?;
         Ok(Self::new(
-           *players.get(0).ok_or(())?,
-           *players.get(1).ok_or(())?,
+            *players.get(0).ok_or(())?,
+            *players.get(1).ok_or(())?,
         ))
     }
 }

@@ -1,7 +1,6 @@
-use crate::Round;
-use super::{GameContainer, PlayerContainer};
-use rand::prelude::*;
 use crate::container::*;
+use crate::Round;
+use rand::prelude::*;
 
 pub trait RoundContainer: GameContainer {
     /// Returns a list of rounds.
@@ -19,7 +18,10 @@ pub trait RoundContainer: GameContainer {
 
     /// Returns a vector with all rounds equal to given round.
     fn find_all_rounds(&self, r: &Round) -> Vec<&Round> {
-        self.rounds().into_iter().filter(|&other| other == r).collect()
+        self.rounds()
+            .into_iter()
+            .filter(|&other| other == r)
+            .collect()
     }
 
     /// Does this round exist in the container?
@@ -29,29 +31,37 @@ pub trait RoundContainer: GameContainer {
 
     /// Returns a random player, if number of players is greater than 0.
     fn get_random_round(&self, rng: &mut ThreadRng) -> Option<&Round> {
-        todo!();
         self.rounds()
             .get(rng.gen_range(0..self.num_rounds()))
             .copied()
     }
 
+    /// Swaps two random players in a random round.
     fn swap_random_players_random_round(self, rng: &mut ThreadRng) -> Self {
-        let total = self.num_rounds();
-        let mut rounds = self.rounds();
-        let n = rng.gen_range(0..total);
-        let copy = rounds[n].clone();
-        let randomized_round = copy.swap_random_players(rng);
-        let _ = std::mem::replace(&mut rounds[n], &randomized_round);
+        let mut round = self.get_random_round(rng).unwrap();
+        let randomized = round.clone().swap_random_players(rng);
+        let _ = std::mem::replace(&mut round, &randomized);
         self
     }
 
+    /// Swaps two random partners in a random round.
     fn swap_random_partners_random_round(self, rng: &mut ThreadRng) -> Self {
-        let total = self.num_rounds();
-        let mut rounds = self.rounds();
-        let n = rng.gen_range(0..total);
-        let copy = rounds[n].clone();
-        let randomized_round = copy.swap_random_partners(rng);
-        let _ = std::mem::replace(&mut rounds[n], &randomized_round);
+        let mut round = self.get_random_round(rng).unwrap();
+        let randomized = round.clone().swap_random_partners(rng);
+        let _ = std::mem::replace(&mut round, &randomized);
         self
+    }
+
+    /// Replaces a reference to a round with a new one that is consumed.
+    fn replace_round_with(self, replace: &Round, with: Round) -> Self {
+        let mut round = self.find_round(replace).unwrap();
+        round = &with;
+        self
+    }
+}
+
+impl RoundContainer for Vec<&Round> {
+    fn rounds(&self) -> Vec<&Round> {
+        self.to_vec()
     }
 }

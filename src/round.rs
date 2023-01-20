@@ -1,8 +1,9 @@
-use crate::{Player, Game, Partners};
-use std::fmt::{Display, Formatter};
-use crate::{Sort, Serialization};
 use crate::container::*;
+use crate::{Game, Partners, Player};
+use crate::{Serialization, Sort};
 use itertools::Itertools;
+use rand::prelude::*;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Round {
@@ -12,34 +13,27 @@ pub struct Round {
 
 impl Round {
     /// Creates a new round with given games and no byes.
-    pub fn new(games: Vec<Game>) -> Round {
-        Round { games, byes: Vec::new() }
+    pub fn new(games: Vec<Game>) -> Self {
+        Round {
+            games,
+            byes: Vec::new(),
+        }
     }
 
     /// Creates a new round with given games and given byes.
-    pub fn with_byes(games: Vec<Game>, byes: Vec<Player>) -> Round {
+    pub fn with_byes(games: Vec<Game>, byes: Vec<Player>) -> Self {
         Round { games, byes }
     }
-}
 
-impl PlayerContainer for Vec<Player> {
-    fn players(&self) -> Vec<&Player> {
-        self.iter().collect()
+    /// Creates a new random round with `num_players`.
+    pub fn new_random(num_players: usize, rng: &mut ThreadRng) -> Self {
+        let mut players = Player::many(num_players as i32, 1);
+        players.shuffle(rng);
+        Self::from_players(players)
     }
 
-    fn from_players(players: Vec<Player>) -> Self {
-        players
-    }
-}
-
-impl PlayerContainer for Round {
-    fn players(&self) -> Vec<&Player> {
-        let mut players = self.games.iter().flat_map(|x| x.players()).collect::<Vec<&Player>>();
-        players.extend(&self.byes);
-        players
-    }
-
-    fn from_players(players: Vec<Player>) -> Self {
+    /// Creates a round from a list of players.
+    pub fn from_players(players: Vec<Player>) -> Self {
         let mut games = vec![];
         let mut table = vec![];
         for player in players {
@@ -54,6 +48,15 @@ impl PlayerContainer for Round {
         }
 
         Round { games, byes: table }
+    }
+}
+
+impl PlayerContainer for Round {
+    fn players(&self) -> Vec<&Player> {
+        self.games.iter()
+            .flat_map(|x| x.players())
+            .chain(&mut self.byes.iter())
+            .collect()
     }
 }
 
@@ -76,8 +79,10 @@ impl RoundContainer for Round {
 }
 
 impl Display for Round {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
-        let games_str = self.games.iter()
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let games_str = self
+            .games
+            .iter()
             .map(|g| format!("{}", g))
             .collect::<Vec<String>>()
             .join(" ");
@@ -99,27 +104,23 @@ impl Sort for Round {
 
 impl Serialization for Round {
     fn serialize(self) -> String {
-        let games_string = self.games.iter()
-            .map(|g| g.serialize())
-            .join(",");
-        let byes_string = self.byes.iter()
-            .map(|p| p.serialize())
-            .join("+");
+        let games_string = self.games.iter().map(|g| g.serialize()).join(",");
+        let byes_string = self.byes.iter().map(|p| p.serialize()).join("+");
         format!("{};{}", games_string, byes_string)
     }
 
     fn deserialize(s: String) -> Result<Self, ()> {
-        let parts = s.split(';')
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
+        let parts = s.split(';').map(|s| s.to_string()).collect::<Vec<String>>();
 
         let games_s = parts.get(0).ok_or(())?;
         let byes_s = parts.get(0).ok_or(())?;
 
-        let games = games_s.split(',')
+        let games = games_s
+            .split(',')
             .map(|s| Game::deserialize(s.to_string()))
             .collect::<Result<Vec<Game>, ()>>()?;
-        let byes = byes_s.split('+')
+        let byes = byes_s
+            .split('+')
             .map(|s| Player::deserialize(s.to_string()))
             .collect::<Result<Vec<Player>, ()>>()?;
 

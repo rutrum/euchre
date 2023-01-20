@@ -1,13 +1,13 @@
-use std::fmt::{Display, Formatter};
-use crate::{Partners, Player};
-use crate::{Sort, Serialization};
 use crate::container::*;
+use crate::{Partners, Player};
+use crate::{Serialization, Sort};
+use std::fmt::{Display, Formatter};
 
 #[macro_export]
 macro_rules! game {
     ($a:ident, $b:ident, $c:ident, $d:ident) => {
         Game::new(Partners::new($a, $b), Partners::new($c, $d))
-    }
+    };
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -42,19 +42,7 @@ impl Game {
 
 impl PlayerContainer for Game {
     fn players(&self) -> Vec<&Player> {
-        vec![
-            &self.0.0,
-            &self.0.1,
-            &self.1.0,
-            &self.1.1,
-        ]
-    }
-
-    fn from_players(partners: Vec<Player>) -> Self {
-        Game(
-            Partners::from_players(partners[0..=1].to_vec()),
-            Partners::from_players(partners[2..=3].to_vec()),
-        )
+        vec![&self.0 .0, &self.0 .1, &self.1 .0, &self.1 .1]
     }
 }
 
@@ -76,7 +64,8 @@ impl Serialization for Game {
     }
 
     fn deserialize(s: String) -> Result<Self, ()> {
-        let partners = s.split('+')
+        let partners = s
+            .split('+')
             .map(|s| Partners::deserialize(s.to_string()))
             .collect::<Result<Vec<Partners>, ()>>()?;
         Ok(Self::new(
@@ -87,7 +76,7 @@ impl Serialization for Game {
 }
 
 impl Display for Game {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
     }
 }

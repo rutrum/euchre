@@ -1,12 +1,11 @@
-use crate::Player;
+use crate::Partners;
+use crate::{Game, Player, Round};
 use rand::prelude::*;
 use std::cmp::Ordering;
 
 pub trait PlayerContainer: Sized {
     /// Returns a list of players.
     fn players(&self) -> Vec<&Player>;
-
-    fn from_players(players: Vec<Player>) -> Self;
 
     /// Returns the total number of players
     fn total_players(&self) -> usize {
@@ -20,7 +19,10 @@ pub trait PlayerContainer: Sized {
 
     /// Returns a vector with all players equal to given player.
     fn find_all_players(&self, p: &Player) -> Vec<&Player> {
-        self.players().into_iter().filter(|&other| other == p).collect()
+        self.players()
+            .into_iter()
+            .filter(|&other| other == p)
+            .collect()
     }
 
     /// Returns if a player is equal to the given player.
@@ -31,9 +33,7 @@ pub trait PlayerContainer: Sized {
     /// Tries to swap two players if they exist in the container.  If
     /// neither are in the container, nothing happens.
     fn swap_players(self, p1: &Player, p2: &Player) -> Self {
-        let mut found_players = self.players()
-            .into_iter()
-            .filter(|p| *p == p1 || *p == p2);
+        let mut found_players = self.players().into_iter().filter(|p| **p == *p1 || **p == *p2);
         if let Some(mut p1) = found_players.next() {
             if let Some(mut p2) = found_players.next() {
                 std::mem::swap(&mut p1, &mut p2);
@@ -69,6 +69,7 @@ pub trait PlayerContainer: Sized {
             .copied()
     }
 
+    /// Returns self with two players swapped in memory.
     fn swap_random_players(self, rng: &mut ThreadRng) -> Self {
         let first = rng.gen_range(0..self.total_players());
         let second = rng.gen_range(0..self.total_players());
@@ -88,3 +89,32 @@ pub trait PlayerContainer: Sized {
     }
 }
 
+impl PlayerContainer for Vec<&Player> {
+    fn players(&self) -> Vec<&Player> {
+        self.to_vec()
+    }
+}
+
+impl PlayerContainer for Vec<Player> {
+    fn players(&self) -> Vec<&Player> {
+        self.iter().collect()
+    }
+}
+
+impl PlayerContainer for Vec<&Partners> {
+    fn players(&self) -> Vec<&Player> {
+        self.iter().flat_map(|&x| x.players()).collect()
+    }
+}
+
+impl PlayerContainer for Vec<&Game> {
+    fn players(&self) -> Vec<&Player> {
+        self.iter().flat_map(|&x| x.players()).collect()
+    }
+}
+
+impl PlayerContainer for Vec<&Round> {
+    fn players(&self) -> Vec<&Player> {
+        self.iter().flat_map(|&x| x.players()).collect()
+    }
+}

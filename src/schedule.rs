@@ -1,72 +1,68 @@
-use crate::{Player, Partners, Game, Round};
-use std::fmt::{Display, Formatter};
 use crate::container::*;
-use crate::{Sort, Serialization};
+use crate::{Game, Partners, Player, Round};
+use crate::{Serialization, Sort};
 use itertools::Itertools;
 use rand::prelude::*;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Schedule(pub Vec<Round>);
+pub struct Schedule {
+    pub players: Vec<Player>,
+    pub rounds: Vec<Round>,
+}
 
 impl Schedule {
     pub fn new_in_order(num_players: usize) -> Schedule {
         let players = Player::many(num_players as i32, 1);
         let num_rounds = num_players - 1 + (num_players % 4);
-        Schedule(
-            (0..num_rounds)
+        let rounds = (0..num_rounds)
                 .map(|_| Round::from_players(players.clone()))
-                .collect()
-        )
+                .collect();
+        Schedule { players, rounds }
     }
 
     pub fn new_random_order(num_players: usize, rng: &mut ThreadRng) -> Schedule {
         let players = Player::many(num_players as i32, 1);
         let num_rounds = num_players - 1 + (num_players % 4);
-        Schedule(
+        let rounds = 
             (0..num_rounds)
-            .map(|_| {
-                let mut shuffled = players.clone();
-                shuffled.shuffle(rng);
-                Round::from_players(shuffled)
-            })
-                .collect()
-        )
-    }
-
-    pub fn players(&self) -> Vec<&Player> {
-        self.0[0].players()
+                .map(|_| {
+                    let mut shuffled = players.clone();
+                    shuffled.shuffle(rng);
+                    Round::from_players(shuffled)
+                })
+                .collect();
+        Schedule { players, rounds }
     }
 }
 
-/*
 impl PlayerContainer for Schedule {
     fn players(&self) -> Vec<&Player> {
-        self.0[0].players()
+        self.rounds.iter().flat_map(|r| r.players()).collect()
     }
 }
-*/
 
 impl PartnersContainer for Schedule {
     fn partners(&self) -> Vec<&Partners> {
-        self.0.iter().flat_map(|round| round.partners()).collect()
+        self.rounds.iter().flat_map(|round| round.partners()).collect()
     }
 }
 
 impl GameContainer for Schedule {
     fn games(&self) -> Vec<&Game> {
-        self.0.iter().flat_map(|round| round.games()).collect()
+        self.rounds.iter().flat_map(|round| round.games()).collect()
     }
 }
 
 impl RoundContainer for Schedule {
     fn rounds(&self) -> Vec<&Round> {
-        self.0.iter().collect()
+        self.rounds.iter().collect()
     }
 }
 
 impl Display for Schedule {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result { 
-        for (i, round) in self.0.iter().enumerate() {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        for (i, round) in self.rounds.iter().enumerate() {
             writeln!(f, "Round {}: {}", i, round)?;
         }
         Ok(())
@@ -75,17 +71,16 @@ impl Display for Schedule {
 
 impl Sort for Schedule {
     fn sort(mut self) -> Self {
-        self.0.sort();
+        self.rounds.sort();
         self
     }
 }
 
 impl Serialization for Schedule {
     fn serialize(self) -> String {
-        self.0.iter()
-            .map(|round| {
-                round.clone().serialize()
-            })
+        self.rounds
+            .iter()
+            .map(|round| round.clone().serialize())
             .join("\n")
     }
 

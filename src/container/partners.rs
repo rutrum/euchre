@@ -1,9 +1,9 @@
-use crate::{Player, Partners};
 use super::PlayerContainer;
+use crate::{Game, Partners, Player, Round};
 use rand::prelude::*;
 use std::cmp::Ordering;
 
-pub trait PartnersContainer: Sized {
+pub trait PartnersContainer: PlayerContainer {
     /// Returns a list of partners
     fn partners(&self) -> Vec<&Partners>;
 
@@ -18,7 +18,10 @@ pub trait PartnersContainer: Sized {
 
     /// Returns a vector with all partners equal to given partner.
     fn find_all_partners(&self, p: &Partners) -> Vec<&Partners> {
-        self.partners().into_iter().filter(|&other| other == p).collect()
+        self.partners()
+            .into_iter()
+            .filter(|&other| other == p)
+            .collect()
     }
 
     /// Returns if a partners is equal to the given partners.
@@ -50,6 +53,7 @@ pub trait PartnersContainer: Sized {
             .find(|partners| partners.has_player(p))
     }
 
+    /// Swaps two random partners and consumes self.
     fn swap_random_partners(self, rng: &mut ThreadRng) -> Self {
         let first = rng.gen_range(0..self.total_partners());
         let second = rng.gen_range(0..self.total_partners());
@@ -69,3 +73,20 @@ pub trait PartnersContainer: Sized {
     }
 }
 
+impl PartnersContainer for Vec<&Partners> {
+    fn partners(&self) -> Vec<&Partners> {
+        self.to_vec()
+    }
+}
+
+impl PartnersContainer for Vec<&Game> {
+    fn partners(&self) -> Vec<&Partners> {
+        self.iter().flat_map(|&g| g.partners()).collect()
+    }
+}
+
+impl PartnersContainer for Vec<&Round> {
+    fn partners(&self) -> Vec<&Partners> {
+        self.iter().flat_map(|&r| r.partners()).collect()
+    }
+}
