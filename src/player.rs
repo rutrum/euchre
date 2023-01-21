@@ -1,12 +1,15 @@
 use crate::container::*;
-use crate::Serialization;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Player(pub i32);
 
 impl Player {
-    pub fn many(num: i32, offset: i32) -> Vec<Player> {
+    pub fn new_list(num: i32) -> Vec<Self> {
+        Self::many(num, 1)
+    }
+
+    pub fn many(num: i32, offset: i32) -> Vec<Self> {
         (0..num).map(|i| Player(i + offset)).collect()
     }
 }
@@ -23,6 +26,7 @@ impl PlayerContainer for Player {
     }
 }
 
+/*
 impl Serialization for Player {
     fn serialize(self) -> String {
         self.0.to_string()
@@ -33,3 +37,4 @@ impl Serialization for Player {
         Ok(Player(id))
     }
 }
+*/

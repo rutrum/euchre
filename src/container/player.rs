@@ -101,19 +101,19 @@ impl PlayerContainer for Vec<Player> {
     }
 }
 
-impl PlayerContainer for Vec<&Partners> {
+impl<'a> PlayerContainer for Vec<&Partners<'a>> {
     fn players(&self) -> Vec<&Player> {
         self.iter().flat_map(|&x| x.players()).collect()
     }
 }
 
-impl PlayerContainer for Vec<&Game> {
+impl<'a> PlayerContainer for Vec<&Game<'a>> {
     fn players(&self) -> Vec<&Player> {
         self.iter().flat_map(|&x| x.players()).collect()
     }
 }
 
-impl PlayerContainer for Vec<&Round> {
+impl<'a> PlayerContainer for Vec<&Round<'a>> {
     fn players(&self) -> Vec<&Player> {
         self.iter().flat_map(|&x| x.players()).collect()
     }

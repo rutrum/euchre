@@ -19,6 +19,7 @@ pub use schedule::Schedule;
 
 use crate::container::*;
 
+/*
 /// Transforming data structure into a string and back
 pub trait Serialization {
     fn serialize(self) -> String;
@@ -26,6 +27,7 @@ pub trait Serialization {
     where
         Self: Sized;
 }
+*/
 
 /// Ensures that data is ordered in a standard manner
 pub trait Sort {

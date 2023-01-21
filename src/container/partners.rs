@@ -36,10 +36,10 @@ pub trait PartnersContainer: PlayerContainer {
             .iter()
             .find(|partners| partners.find_player(p).is_some())
             .and_then(|partners| {
-                if partners.0 == *p {
-                    Some(&partners.1)
-                } else if partners.1 == *p {
-                    Some(&partners.0)
+                if partners.0 == p {
+                    Some(partners.1)
+                } else if partners.1 == p {
+                    Some(partners.0)
                 } else {
                     None
                 }
@@ -73,19 +73,19 @@ pub trait PartnersContainer: PlayerContainer {
     }
 }
 
-impl PartnersContainer for Vec<&Partners> {
+impl<'a> PartnersContainer for Vec<&Partners<'a>> {
     fn partners(&self) -> Vec<&Partners> {
         self.to_vec()
     }
 }
 
-impl PartnersContainer for Vec<&Game> {
+impl<'a> PartnersContainer for Vec<&Game<'a>> {
     fn partners(&self) -> Vec<&Partners> {
         self.iter().flat_map(|&g| g.partners()).collect()
     }
 }
 
-impl PartnersContainer for Vec<&Round> {
+impl<'a> PartnersContainer for Vec<&Round<'a>> {
     fn partners(&self) -> Vec<&Partners> {
         self.iter().flat_map(|&r| r.partners()).collect()
     }

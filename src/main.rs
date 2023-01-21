@@ -10,6 +10,8 @@ fn main() {
     let gen_size = 20;
     let num_players = 20;
 
+    let players = Player::new_list(num_players);
+
     let mut generation = get_start(gen_size, num_players, &mut rng);
 
     let iterations = 100;
@@ -72,10 +74,12 @@ fn print_facts(schedule: &Schedule) {
     );
     println!("unequal byes: {}", unequal_byes(&best));
     println!("total: {}", total(&best));
-    println!("{}", best.serialize());
+    //println!("{}", best.serialize());
 }
 
-fn get_start(num: usize, num_players: usize, rng: &mut ThreadRng) -> Vec<(Schedule, i32)> {
+fn get_start<'a,'b>(num: usize, num_players: usize, rng: &'b mut ThreadRng) -> Vec<(Schedule<'a>, i32)> {
+    todo!();
+    /*
     (0..num)
         .map(|_| Schedule::new_random_order(num_players, rng))
         .map(|s| {
@@ -83,10 +87,12 @@ fn get_start(num: usize, num_players: usize, rng: &mut ThreadRng) -> Vec<(Schedu
             (s, e)
         })
         .collect()
+    */
 }
 
-fn move_same_partners(mut schedule: Schedule, rng: &mut ThreadRng) -> Schedule {
+fn move_same_partners<'a,'b>(schedule: Schedule<'a>, rng: &'b mut ThreadRng) -> Schedule<'a> {
     let players: Vec<Player> = schedule.players().into_iter().copied().collect();
+    let mut new_rounds: Vec<Round> = schedule.rounds.clone();
     for p in &players {
         let games = schedule.find_all_games_from_player(p);
         let opponent_counts = games
@@ -100,9 +106,8 @@ fn move_same_partners(mut schedule: Schedule, rng: &mut ThreadRng) -> Schedule {
             .map(|(p, _)| *p)
             .collect::<Vec<Player>>();
         for opponent in opponents_for_switching.clone() {
-            schedule.rounds = schedule.rounds()
+            new_rounds = new_rounds
                 .into_iter()
-                .cloned()
                 .map(|round: Round| {
                     match players.get_random_player_not_any(rng, &[*p, opponent]) {
                         Some(to_switch) => { round.swap_players(&opponent, to_switch) }
@@ -111,10 +116,11 @@ fn move_same_partners(mut schedule: Schedule, rng: &mut ThreadRng) -> Schedule {
                 }).collect();
         }
     }
-    schedule
+    Schedule { rounds: new_rounds }
 }
 
-fn move_same_partners_new_opponent(mut schedule: Schedule, rng: &mut ThreadRng) -> Schedule {
+/*
+fn move_same_partners_new_opponent<'a,'b>(mut schedule: Schedule, rng: &'b mut ThreadRng) -> Schedule<'a> {
     let players: Vec<Player> = schedule.players().into_iter().copied().collect();
     for p in &players {
         let games = schedule.find_all_games_from_player(p);
@@ -149,3 +155,4 @@ fn move_same_partners_new_opponent(mut schedule: Schedule, rng: &mut ThreadRng) 
     }
     schedule
 }
+*/

@@ -1,6 +1,5 @@
 use super::{PartnersContainer, PlayerContainer};
 use crate::{Game, Partners, Player, Round};
-use itertools::Itertools;
 
 pub trait GameContainer: PartnersContainer {
     /// Returns a list of games
@@ -86,13 +85,13 @@ pub trait GameContainer: PartnersContainer {
     }
 }
 
-impl GameContainer for Vec<&Game> {
+impl<'a> GameContainer for Vec<&Game<'a>> {
     fn games(&self) -> Vec<&Game> {
         self.to_vec()
     }
 }
 
-impl GameContainer for Vec<&Round> {
+impl<'a> GameContainer for Vec<&Round<'a>> {
     fn games(&self) -> Vec<&Game> {
         self.iter().flat_map(|&x| x.games()).collect()
     }

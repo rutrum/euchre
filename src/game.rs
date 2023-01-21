@@ -1,6 +1,6 @@
 use crate::container::*;
 use crate::{Partners, Player};
-use crate::{Serialization, Sort};
+use crate::{Sort};
 use std::fmt::{Display, Formatter};
 
 #[macro_export]
@@ -11,54 +11,36 @@ macro_rules! game {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Game(pub Partners, pub Partners);
+pub struct Game<'a>(pub Partners<'a>, pub Partners<'a>);
 
-impl Game {
+impl<'a> Game<'a> {
     /// Creates a new game with partners in sorted order.
-    pub fn new(p1: Partners, p2: Partners) -> Game {
+    pub fn new(p1: Partners<'a>, p2: Partners<'a>) -> Game<'a> {
         let game = Game(p1, p2);
         game.sort()
     }
-
-    /// Replaces `replace` with `with` if `replace` player is in the game.
-    /// Also sorts the result after replacement.
-    pub fn substitute_player(mut self, replace: Player, with: Player) -> Self {
-        self.0 = self.0.substitute(replace, with);
-        self.1 = self.1.substitute(replace, with);
-        self.sort()
-    }
-
-    /// Replaces `replace` with `with` if `replace` partners is in the game.
-    /// Also sorts the result after replacement.
-    pub fn substitute_partners(mut self, replace: Partners, with: Partners) -> Self {
-        if self.0 == replace {
-            self.0 = with;
-        } else if self.1 == replace {
-            self.1 = with;
-        }
-        self.sort()
-    }
 }
 
-impl PlayerContainer for Game {
+impl<'a> PlayerContainer for Game<'a> {
     fn players(&self) -> Vec<&Player> {
         vec![&self.0 .0, &self.0 .1, &self.1 .0, &self.1 .1]
     }
 }
 
-impl PartnersContainer for Game {
+impl<'a> PartnersContainer for Game<'a> {
     fn partners(&self) -> Vec<&Partners> {
         vec![&self.0, &self.1]
     }
 }
 
-impl GameContainer for Game {
+impl<'a> GameContainer for Game<'a> {
     fn games(&self) -> Vec<&Game> {
         vec![self]
     }
 }
 
-impl Serialization for Game {
+/*
+impl<'a> Serialization for Game<'a> {
     fn serialize(self) -> String {
         format!("{}v{}", self.0, self.1)
     }
@@ -69,19 +51,20 @@ impl Serialization for Game {
             .map(|s| Partners::deserialize(s.to_string()))
             .collect::<Result<Vec<Partners>, ()>>()?;
         Ok(Self::new(
-            *partners.get(0).ok_or(())?,
-            *partners.get(1).ok_or(())?,
+            partners.get(0).ok_or(())?,
+            partners.get(1).ok_or(())?,
         ))
     }
 }
+*/
 
-impl Display for Game {
+impl<'a> Display for Game<'a> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
     }
 }
 
-impl Sort for Game {
+impl<'a> Sort for Game<'a> {
     fn sort(mut self) -> Self {
         if self.1 < self.0 {
             std::mem::swap(&mut self.1, &mut self.0);

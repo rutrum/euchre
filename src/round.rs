@@ -1,19 +1,19 @@
 use crate::container::*;
 use crate::{Game, Partners, Player};
-use crate::{Serialization, Sort};
+use crate::{Sort};
 use itertools::Itertools;
 use rand::prelude::*;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Round {
-    pub games: Vec<Game>,
-    pub byes: Vec<Player>,
+pub struct Round<'a> {
+    pub games: Vec<Game<'a>>,
+    pub byes: Vec<&'a Player>,
 }
 
-impl Round {
+impl<'a> Round<'a> {
     /// Creates a new round with given games and no byes.
-    pub fn new(games: Vec<Game>) -> Self {
+    pub fn new(games: Vec<Game<'a>>) -> Self {
         Round {
             games,
             byes: Vec::new(),
@@ -21,19 +21,21 @@ impl Round {
     }
 
     /// Creates a new round with given games and given byes.
-    pub fn with_byes(games: Vec<Game>, byes: Vec<Player>) -> Self {
+    pub fn with_byes(games: Vec<Game<'a>>, byes: Vec<&'a Player>) -> Self {
         Round { games, byes }
     }
 
+    /*  // no sense anymore, since I don't own players
     /// Creates a new random round with `num_players`.
     pub fn new_random(num_players: usize, rng: &mut ThreadRng) -> Self {
         let mut players = Player::many(num_players as i32, 1);
         players.shuffle(rng);
         Self::from_players(players)
     }
+    */
 
     /// Creates a round from a list of players.
-    pub fn from_players(players: Vec<Player>) -> Self {
+    pub fn from_players(players: Vec<&'a Player>) -> Self {
         let mut games = vec![];
         let mut table = vec![];
         for player in players {
@@ -51,34 +53,34 @@ impl Round {
     }
 }
 
-impl PlayerContainer for Round {
+impl<'a> PlayerContainer for Round<'a> {
     fn players(&self) -> Vec<&Player> {
         self.games.iter()
             .flat_map(|x| x.players())
-            .chain(&mut self.byes.iter())
+            .chain(self.byes.clone().into_iter()) // cloning the list, not the data in the list
             .collect()
     }
 }
 
-impl PartnersContainer for Round {
+impl<'a> PartnersContainer for Round<'a> {
     fn partners(&self) -> Vec<&Partners> {
         self.games.iter().flat_map(|g| g.partners()).collect()
     }
 }
 
-impl GameContainer for Round {
+impl<'a> GameContainer for Round<'a> {
     fn games(&self) -> Vec<&Game> {
         self.games.iter().collect()
     }
 }
 
-impl RoundContainer for Round {
+impl<'a> RoundContainer for Round<'a> {
     fn rounds(&self) -> Vec<&Round> {
         vec![self]
     }
 }
 
-impl Display for Round {
+impl<'a> Display for Round<'a> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let games_str = self
             .games
@@ -94,7 +96,7 @@ impl Display for Round {
     }
 }
 
-impl Sort for Round {
+impl<'a> Sort for Round<'a> {
     fn sort(mut self) -> Self {
         self.games.sort();
         self.byes.sort();
@@ -102,7 +104,8 @@ impl Sort for Round {
     }
 }
 
-impl Serialization for Round {
+/*
+impl<'a> Serialization for Round<'a> {
     fn serialize(self) -> String {
         let games_string = self.games.iter().map(|g| g.serialize()).join(",");
         let byes_string = self.byes.iter().map(|p| p.serialize()).join("+");
@@ -127,3 +130,4 @@ impl Serialization for Round {
         Ok(Self::with_byes(games, byes))
     }
 }
+*/

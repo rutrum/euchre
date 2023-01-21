@@ -60,7 +60,7 @@ pub trait RoundContainer: GameContainer {
     }
 }
 
-impl RoundContainer for Vec<&Round> {
+impl<'a> RoundContainer for Vec<&Round<'a>> {
     fn rounds(&self) -> Vec<&Round> {
         self.to_vec()
     }
