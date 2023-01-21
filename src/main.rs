@@ -11,8 +11,9 @@ fn main() {
     let num_players = 20;
 
     let players = Player::new_list(num_players);
+    let player_refs = players.iter().collect();
 
-    let mut generation = get_start(gen_size, num_players, &mut rng);
+    let mut generation = get_first_generation(&player_refs, gen_size, &mut rng);
 
     let iterations = 100;
 
@@ -77,17 +78,14 @@ fn print_facts(schedule: &Schedule) {
     //println!("{}", best.serialize());
 }
 
-fn get_start<'a,'b>(num: usize, num_players: usize, rng: &'b mut ThreadRng) -> Vec<(Schedule<'a>, i32)> {
-    todo!();
-    /*
-    (0..num)
-        .map(|_| Schedule::new_random_order(num_players, rng))
+fn get_first_generation<'a,'b>(players: &Vec<&'a Player>, gen_size: usize, rng: &'b mut ThreadRng) -> Vec<(Schedule<'a>, i32)> {
+    (0..gen_size)
+        .map(|_| Schedule::new_random(&players, rng))
         .map(|s| {
             let e = total(&s);
             (s, e)
         })
         .collect()
-    */
 }
 
 fn move_same_partners<'a,'b>(schedule: Schedule<'a>, rng: &'b mut ThreadRng) -> Schedule<'a> {

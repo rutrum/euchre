@@ -10,6 +10,20 @@ pub struct Schedule<'a> {
 }
 
 impl<'a> Schedule<'a> {
+
+    pub fn new_random(players: &Vec<&'a Player>, rng: &mut ThreadRng) -> Schedule<'a> {
+        let num_players = players.len();
+        let num_rounds = num_players - 1 + (num_players % 4);
+        let rounds = (0..num_rounds)
+                .map(|_| {
+                    let mut shuffled = players.clone();
+                    shuffled.shuffle(rng);
+                    Round::from_players(shuffled)
+                })
+                .collect();
+        Schedule { rounds }
+    }
+
     /*
     pub fn new_in_order(num_players: usize) -> Schedule<'a> {
         let players = Player::many(num_players as i32, 1);
