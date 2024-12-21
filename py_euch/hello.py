@@ -47,6 +47,9 @@ class Chart:
         ])
         for round in self.chart:
             np.random.shuffle(round)
+
+        self.skip_chance = 0.05
+        
         self.init_partners_count()
         self.init_opponents_count()
         self.refine()
@@ -72,14 +75,17 @@ class Chart:
                 self.opponents_count[Pair(left, ahead)] += 1
                 self.opponents_count[Pair(right, ahead)] += 1
 
-    def seat(self, round, player):
-        return self.chart[round, player]
+    # TODO: remove all invokations of this
+    def seat(self, round, seat):
+        return self.chart[round, seat]
 
     def swap_players(self, round, a_seat, b_seat):
         a = self.seat(round, a_seat)
+        b = self.seat(round, b_seat)
+
+        # First update partner counds
         a_partner_seat = get_partner_seat(a_seat)
         a_partner = self.seat(round, a_partner_seat)
-        b = self.seat(round, b_seat)
         b_partner_seat = get_partner_seat(b_seat)
         b_partner = self.seat(round, b_partner_seat)
 
@@ -88,24 +94,45 @@ class Chart:
         self.partners_count[Pair(a, b_partner)] += 1
         self.partners_count[Pair(b, a_partner)] += 1
 
+        # Now update opponent counts
+        a_opponent_seats = get_opponent_seats(a_seat)
+        a_opponents = [ self.seat(round, seat) for seat in a_opponent_seats ]
+        b_opponent_seats = get_opponent_seats(b_seat)
+        b_opponents = [ self.seat(round, seat) for seat in b_opponent_seats ]
+
+        for opp in a_opponents:
+            self.opponents_count[Pair(a, opp)] -= 1
+            self.opponents_count[Pair(b, opp)] += 1
+        for opp in b_opponents:
+            self.opponents_count[Pair(b, opp)] -= 1
+            self.opponents_count[Pair(a, opp)] += 1
+
         # do this last ;)
         self.chart[round, a_seat], self.chart[round, b_seat] = self.chart[round, b_seat], self.chart[round, a_seat]
 
     def bad_partners(self) -> bool:
+        """True when partners are matched together more than once."""
         for k, v in self.partners_count.items():
             if v > 1:
                 return True
         return False
 
+    def bad_opponents(self) -> bool:
+        """True when opponents are matched together more than twice."""
+        for k, v in self.opponents_count.items():
+            if v > 2:
+                return True
+        return False
+
     def refine(self):
-        max_loops = 10
+        max_loops = 1000
         cur = 0
-        while cur < max_loops and self.bad_partners():
+        while cur < max_loops and (self.bad_partners() or self.bad_opponents()):
             loop_total = 0
             for round in range(self.num_rounds):
                 loop_total += self.refine_round(round)
-            cur += 1
-            print(cur, loop_total)
+            cur += loop_total
+            #print(cur, loop_total)
         print(cur)
 
     def refine_round(self, round):
@@ -116,33 +143,73 @@ class Chart:
             partner_seat = get_partner_seat(player_seat)
             partner = self.chart[round, partner_seat]
             opponent_seats = get_opponent_seats(player_seat)
+            opponents = [ self.chart[round, opponent_seat] for opponent_seat in opponent_seats ]
 
+            table_seats = opponent_seats + [player_seat, partner_seat]
             table_players = [
                 self.chart[round, player]
                 for player
-                in opponent_seats + [player_seat, partner_seat]
+                in table_seats
             ]
 
             # now check if players are good
             if self.partners_count[Pair(player, partner)] > 1:
                 # too many times, switch this up
                 for another_player_seat in range(self.num_players):
-                    another_player = self.chart[round, another_player_seat]
-                    if another_player in list(table_players):
+                    if another_player_seat in table_seats:
                         continue
 
+                    another_player = self.chart[round, another_player_seat]
                     another_partner_seat = get_partner_seat(another_player_seat)
                     another_partner = self.chart[round, another_partner_seat]
                     
-                    if (self.partners_count[Pair(another_player, player)] == 0 and
-                        self.partners_count[Pair(partner, another_partner)] == 0):
-                        print(f"round {round}: swapping {another_player} and {partner}")
-                        print(self.chart[round])
+                    # during a swap, theres 6 metrics that change
+                    # I should consider swapping if some number of those criteria are met
+
+                    #if (self.partners_count[Pair(another_player, player)] == 0 and
+                    #    self.partners_count[Pair(partner, another_partner)] == 0):
+                    if self.swap_improvements(round, player, another_player) > 4 and np.random.random() > self.skip_chance:
+                        #print(f"round {round}: swapping {another_player} and {partner}")
+                        #print(self.chart[round])
                         self.swap_players(round, another_player_seat, partner_seat)
-                        print(self.chart[round])
+                        #print(self.chart[round])
                         total_swaps += 1
                         break # partner score closer to 1
+            
+            for opponent in opponents:
+                if self.opponents_count[Pair(player, opponent)] > 2:
+                    for another_player_seat in range(self.num_players):
+                        # this check has to be done without following reference
+                        if another_player_seat in table_seats:
+                            continue
+                        another_player = self.chart[round, another_player_seat]
+
+                        # see if making the swap improves something else
+                        if self.swap_improvements(round, player_seat, another_player_seat) > 4 and np.random.random() > self.skip_chance:
+                            print(f"round {round}: swapping {another_player} and {partner}")
+                            self.swap_players(round, player_seat, another_player_seat)
+                            total_swaps += 1
+                            break # partner score closer to 1
         return total_swaps
+
+    def swap_improvements(self, round, seat_a, seat_b):
+        """Returns a score from 1-6 based on how many improvements are made to counts."""
+        a = self.chart[round, seat_a]
+        a_partner = self.chart[round, get_partner_seat(seat_a)]
+        a_opps = [ self.chart[round, opp_seat] for opp_seat in get_opponent_seats(seat_a) ]
+
+        b = self.chart[round, seat_b]
+        b_partner = self.chart[round, get_partner_seat(seat_b)]
+        b_opps = [ self.chart[round, opp_seat] for opp_seat in get_opponent_seats(seat_b) ]
+        
+        return (
+            (self.partners_count[Pair(a, b_partner)] < 1)
+            + (self.partners_count[Pair(b, a_partner)] < 1)
+            + (self.opponents_count[Pair(a, b_opps[0])] < 2)
+            + (self.opponents_count[Pair(a, b_opps[1])] < 2)
+            + (self.opponents_count[Pair(b, a_opps[0])] < 2)
+            + (self.opponents_count[Pair(b, a_opps[1])] < 2)
+        )
 
     def __str__(self):
         s = ""
@@ -163,8 +230,9 @@ def main():
     # then the counts should be 1 or less,
     # but it stops swapping anymore
     print(list(sort_vals(rt.partners_count).items())[:10])
-    #print(list(sort_vals(rt.opponents_count).items())[:10])
+    print(list(sort_vals(rt.opponents_count).items())[:10])
     print(f"bad partners: {rt.bad_partners()}")
+    print(f"bad opponents: {rt.bad_opponents()}")
 
 
 if __name__ == "__main__":
