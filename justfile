@@ -1,2 +1,2 @@
-run:
-    (cd py_euch; poetry run python -m main)
+watch:
+    typst watch notes/notes.typ
