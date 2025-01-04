@@ -1,5 +1,6 @@
 import numpy as np
 from collections import defaultdict
+import json
 
 def get_partner_seat(player_seat):
     """Return the seat number of the partner of a player seat."""
@@ -44,7 +45,7 @@ class Chart:
         self.chart = np.asarray([
             np.arange(self.num_players)
             for round in range(self.num_rounds)
-        ])
+        ], dtype="u8")
         for round in self.chart:
             np.random.shuffle(round)
 
@@ -75,7 +76,7 @@ class Chart:
                 self.opponents_count[Pair(left, ahead)] += 1
                 self.opponents_count[Pair(right, ahead)] += 1
 
-    # TODO: remove all invokations of this
+    # TODO: remove all invocations of this
     def seat(self, round, seat):
         return self.chart[round, seat]
 
@@ -211,6 +212,21 @@ class Chart:
             + (self.opponents_count[Pair(b, a_opps[1])] < 2)
         )
 
+    def to_json(self):
+        # this may not even be necessary, why not just return the numpy 2d array?
+        d = {
+            "num_players": self.num_players,
+            "num_rounds": self.num_rounds,
+            "chart": [
+                [
+                    int(self.chart[i_round][i_player])
+                    for i_player in range(self.num_players)
+                ]
+                for i_round in range(self.num_rounds)
+            ],
+        }
+        return json.dumps(d, indent=None)
+
     def __str__(self):
         s = ""
         for row in self.chart:
@@ -233,6 +249,10 @@ def main():
     print(list(sort_vals(rt.opponents_count).items())[:10])
     print(f"bad partners: {rt.bad_partners()}")
     print(f"bad opponents: {rt.bad_opponents()}")
+
+    filename = f"data/{rt.num_players}players_{rt.num_rounds}rounds.json"
+    with open(filename, "w") as f:
+        f.write(rt.to_json())
 
 
 if __name__ == "__main__":

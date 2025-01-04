@@ -7,9 +7,7 @@
   in
   {
     devShells.${system} = {
-      default = self.devShells.${system}.python;
-
-      python = pkgs.mkShell {
+      default = pkgs.mkShell {
         name = "euchre";
         buildInputs = with pkgs; [
           uv
@@ -24,14 +22,6 @@
         # required for numpy
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.zlib ];
       };
-
-      typst = pkgs.mkShell {
-        name = "typst-euchre";
-        buildInputs = with pkgs; [
-          typst
-        ];
-      };
-
     };
   };
 }
