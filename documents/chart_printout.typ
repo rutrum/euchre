@@ -1,6 +1,6 @@
 #set page(flipped: true)
 
-#let data = json("../py_euch/data/32players_15rounds.json")
+#let data = json("../py_euch/data/chart.json")
 #let chart = data.chart
 
 #let num_tables = calc.floor(data.num_players / 4)
