@@ -49,7 +49,7 @@ class Chart:
         for round in self.chart:
             np.random.shuffle(round)
 
-        self.skip_chance = 0.05
+        self.skip_chance = 0.2
         
         self.init_partners_count()
         self.init_opponents_count()
@@ -68,27 +68,23 @@ class Chart:
         for round in range(self.num_rounds):
             for table in range(self.num_players // 4):
                 me = self.chart[round, 4 * table]
-                left = self.chart[round, 4 * table + 1]
-                ahead = self.chart[round, 2 * table + 2]
-                right = self.chart[round, 2 * table + 3]
+                ahead = self.chart[round, 4 * table + 1]
+                left = self.chart[round, 4 * table + 2]
+                right = self.chart[round, 4 * table + 3]
                 self.opponents_count[Pair(me, left)] += 1
                 self.opponents_count[Pair(me, right)] += 1
                 self.opponents_count[Pair(left, ahead)] += 1
                 self.opponents_count[Pair(right, ahead)] += 1
 
-    # TODO: remove all invocations of this
-    def seat(self, round, seat):
-        return self.chart[round, seat]
-
     def swap_players(self, round, a_seat, b_seat):
-        a = self.seat(round, a_seat)
-        b = self.seat(round, b_seat)
+        a = self.chart[round, a_seat]
+        b = self.chart[round, b_seat]
 
         # First update partner counds
         a_partner_seat = get_partner_seat(a_seat)
-        a_partner = self.seat(round, a_partner_seat)
+        a_partner = self.chart[round, a_partner_seat]
         b_partner_seat = get_partner_seat(b_seat)
-        b_partner = self.seat(round, b_partner_seat)
+        b_partner = self.chart[round, b_partner_seat]
 
         self.partners_count[Pair(a, a_partner)] -= 1
         self.partners_count[Pair(b, b_partner)] -= 1
@@ -97,9 +93,9 @@ class Chart:
 
         # Now update opponent counts
         a_opponent_seats = get_opponent_seats(a_seat)
-        a_opponents = [ self.seat(round, seat) for seat in a_opponent_seats ]
+        a_opponents = [ self.chart[round, seat] for seat in a_opponent_seats ]
         b_opponent_seats = get_opponent_seats(b_seat)
-        b_opponents = [ self.seat(round, seat) for seat in b_opponent_seats ]
+        b_opponents = [ self.chart[round, seat] for seat in b_opponent_seats ]
 
         for opp in a_opponents:
             self.opponents_count[Pair(a, opp)] -= 1
@@ -126,7 +122,7 @@ class Chart:
         return False
 
     def refine(self):
-        max_loops = 1000
+        max_loops = 100000
         cur = 0
         while cur < max_loops and (self.bad_partners() or self.bad_opponents()):
             loop_total = 0
@@ -212,6 +208,28 @@ class Chart:
             + (self.opponents_count[Pair(b, a_opps[1])] < 2)
         )
 
+    def sort_chart(self):
+        for round in range(self.num_rounds):
+            # first sort the partners
+            for seat in np.arange(0, self.num_players, step=2):
+                player = self.chart[round, seat]
+                partner = self.chart[round, seat+1]
+                if player > partner:
+                    self.chart[round, seat] = partner
+                    self.chart[round, seat+1] = player
+
+            # then sort apponents
+            for seat in np.arange(0, self.num_players, step=4):
+                player = self.chart[round, seat]
+                opponent = self.chart[round, seat+2]
+                if player > opponent:
+                    partner = self.chart[round, seat+1]
+                    opp2 = self.chart[round, seat+3]
+                    self.chart[round, seat] = opponent
+                    self.chart[round, seat+1] = opp2
+                    self.chart[round, seat+2] = player
+                    self.chart[round, seat+3] = partner
+
     def to_json(self):
         # this may not even be necessary, why not just return the numpy 2d array?
         d = {
@@ -240,7 +258,7 @@ def sort_vals(d):
 
 def main():
     rt = Chart(
-        num_players=32, num_rounds=15)
+        num_players=28, num_rounds=15)
     print(rt)
     # If it stops after the first round,
     # then the counts should be 1 or less,
@@ -250,7 +268,10 @@ def main():
     print(f"bad partners: {rt.bad_partners()}")
     print(f"bad opponents: {rt.bad_opponents()}")
 
-    filename = f"data/{rt.num_players}players_{rt.num_rounds}rounds.json"
+    rt.sort_chart()
+
+    # filename = f"data/{rt.num_players}players_{rt.num_rounds}rounds.json"
+    filename = "data/chart.json"
     with open(filename, "w") as f:
         f.write(rt.to_json())
 

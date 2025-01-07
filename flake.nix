@@ -13,6 +13,7 @@
           uv
           just
           typst
+          tinymist
           
           # required for numpy
           stdenv.cc.cc
