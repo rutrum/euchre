@@ -6,3 +6,6 @@ watch FILE:
 
 open FILE:
     zathura {{FILE}} &
+
+code:
+    codium .

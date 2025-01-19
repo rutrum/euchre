@@ -20,6 +20,10 @@
           zlib
         ];
 
+        shellHook = ''
+          just --list
+        '';
+
         # required for numpy
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.zlib ];
       };

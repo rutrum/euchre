@@ -208,6 +208,12 @@ class Chart:
             + (self.opponents_count[Pair(b, a_opps[1])] < 2)
         )
 
+    def seat(self, round, player):
+        """Returns the seat of the player in the round."""
+        for seat in range(self.num_players):
+            if self.chart[round, seat] == player:
+                return seat
+
     def sort_chart(self):
         for round in range(self.num_rounds):
             # first sort the partners
@@ -230,6 +236,22 @@ class Chart:
                     self.chart[round, seat+2] = player
                     self.chart[round, seat+3] = partner
 
+    def player_info(self, player):
+        rounds = []
+        for round in range(self.num_rounds):
+            seat = self.seat(round, player)
+            rounds.append({
+                "seat": seat,
+                "table": seat // 4,
+                "partner": int(self.chart[round, get_partner_seat(seat)]),
+                "opponents": [
+                    int(self.chart[round, opp])
+                    for opp in get_opponent_seats(seat)
+                ],
+            })
+        return rounds
+
+
     def to_json(self):
         # this may not even be necessary, why not just return the numpy 2d array?
         d = {
@@ -242,6 +264,10 @@ class Chart:
                 ]
                 for i_round in range(self.num_rounds)
             ],
+            "players": {
+                int(i): self.player_info(i)
+                for i in range(self.num_players)
+            }
         }
         return json.dumps(d, indent=None)
 
@@ -257,8 +283,7 @@ def sort_vals(d):
     return {k: v for k, v in sorted(d.items(), key=lambda item: -item[1])}
 
 def main():
-    rt = Chart(
-        num_players=28, num_rounds=15)
+    rt = Chart(num_players=32, num_rounds=12)
     print(rt)
     # If it stops after the first round,
     # then the counts should be 1 or less,
