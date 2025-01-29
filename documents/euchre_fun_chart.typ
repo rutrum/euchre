@@ -24,7 +24,7 @@
 
 // euchrefun style
 
-#set text(font: "Liberation Sans", weight: "bold", size: 13pt)
+#set text(font: "Liberation Sans", weight: "bold", size: 12pt)
 #set table.hline(stroke: 0.5pt + black)
 #set align(center)
 
