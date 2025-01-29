@@ -26,7 +26,7 @@
     columns: (auto,) * 4 + (2fr, 1fr),
     align: (right,) + (center,) * 5,
     stroke: (x, y) => if x > 0 and y > 0 {
-      black
+      0.5pt + gray
     },
     [],
     [Table],
