@@ -6,24 +6,29 @@
 #let player = players.at("0")
 #let num_rounds = player.len()
 
-#set page(columns: 2, margin: 0.5in)
+#set page(columns: 2, margin: 0.4in)
+#set columns(gutter: 0.8in)
+
+#set table(inset: (y: 0.6em))
 
 // #show table.cell.where(y: 0): body => box(fill: blue, rotate(-90deg, reflow: true, body))
 
-//#show table.cell.where(y: 0): it => {
-//  let (body, ..fields) = it.fields()
-//  return it.func().with(body: rotate(-90deg, reflow: true, body))(..fields)
-//}
-
 #for i_player in range(players.len()) [
   #let player = players.at(str(i_player))
-  Scorecard for player #{i_player + 1}.
+  #{
+    set text(size: 1.5em)
+    [*Player #{i_player + 1}:*]
+  }
+  // #box(width: 1fr, line(start: (10pt, 0pt), length: 100% - 10pt))
 
   #table(
     //columns: (1fr,) * 3 + (2fr, 1fr, 1fr),
-    columns: (auto,) * 6,
-    align: center,
-    [Round],
+    columns: (auto,) * 4 + (2fr, 1fr),
+    align: (right,) + (center,) * 5,
+    stroke: (x, y) => if x > 0 and y > 0 {
+      black
+    },
+    [],
     [Table],
     [With],
     [Against],
@@ -35,12 +40,22 @@
       (
         [#{ i_round + 1 }],
         [#{ round.table + 1 }],
-        [#round.partner],
-        [#round.opponents.at(0) + #round.opponents.at(1)],
+        [#{ round.partner + 1 }],
+        [#{ round.opponents.at(0) + 1 } + #{ round.opponents.at(1) + 1} ],
         [],
         [],
       )
-    }
+    },
+  )
+
+  #v(1fr)
+
+  #table(
+    columns: (1fr, 1fr),
+    align: center,
+    stroke: (x, y) => (top: black),
+    gutter: 1em,
+    [Final score], [Total loners],
   )
   #v(1fr)
   #if calc.rem(i_player, 2) == 1 {
