@@ -6,7 +6,7 @@
 #let player = players.at("0")
 #let num_rounds = player.len()
 
-#set page(columns: 2, margin: 0.4in)
+#set page(columns: 2, margin: 0.4in, paper: "us-letter")
 #set columns(gutter: 0.8in)
 
 #set table(inset: (y: 0.6em))
@@ -57,8 +57,9 @@
     gutter: 1em,
     [Final score], [Total loners],
   )
-  #v(1fr)
   #if calc.rem(i_player, 2) == 1 {
     colbreak()
-  } else { }
+  } else {
+    v(1fr)
+  }
 ]

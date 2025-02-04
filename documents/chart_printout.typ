@@ -3,7 +3,11 @@
 #let data = json("../py_euch/data/chart.json")
 #let chart = data.chart
 
+#let max_tables_per_row = 7;
 #let num_tables = calc.floor(data.num_players / 4)
+#let num_rows = calc.floor((num_tables - 1) / max_tables_per_row) + 1
+
+#set page(margin: 0.5in, paper: "us-letter")
 
 
 #show heading.where(depth: 1): set align(center)
@@ -29,46 +33,62 @@
 
 // todo: vertical lines between partners
 
-#table(
-  columns: data.num_players + 2,
-  align: left,
-  inset: 0.4em,
-  column-gutter: (
-    (auto,) + (6pt, auto, 6pt, auto) * num_tables
-  ),
+#{
+  for row in range(num_rows) {
+    let start_table = row * max_tables_per_row;
+    let row_tables = if row < num_rows - 1 {
+      max_tables_per_row
+    } else {
+      num_tables - row * max_tables_per_row
+    };
 
-  table.cell(
-    colspan: 2,
-    [],
-  ),
+    // [#row #start_table #num_tables #row_tables]
 
-  // row headers
-  ..for (i, euchre_table) in range(num_tables).enumerate() {
-    (
-      table.cell(
-        align: center,
-        colspan: 4,
-        [Table #(i+1)],
+    table(
+      columns: row_tables * 4 + 2,
+      align: left,
+      inset: 0.4em,
+      column-gutter: (
+        (auto,) + (10pt, auto, 6pt, auto) * row_tables
       ),
-    )
-  },
-  //..for player in range(data.num_players) {(
-  //    [#(player+1)],
-  //)},
 
-  table.cell(
-    align: horizon,
-    rowspan: data.num_rounds,
-    rotate(-90deg, [Round]),
-  ),
-  ..for (i, row) in data.chart.enumerate() {
-    (
-      [#(i + 1)],
-      ..for player in row {
+      table.cell(
+        colspan: 2,
+        [],
+      ),
+
+      // row headers
+      ..for (i, euchre_table) in range(start_table, start_table + row_tables).enumerate() {
         (
-          [#(player + 1)],
+          table.cell(
+            align: center,
+            colspan: 4,
+            [Table #(i + start_table +1)],
+          ),
         )
       },
+      //..for player in range(data.num_players) {(
+      //    [#(player+1)],
+      //)},
+
+      // round header
+      table.cell(
+        align: horizon,
+        rowspan: data.num_rounds,
+        rotate(-90deg, [Round]),
+      ),
+
+      ..for (i, row) in data.chart.enumerate() {
+        (
+          [#(i + 1)], // round number
+          ..for (j, player) in row.enumerate() {
+            if j >= (start_table * 4) and j < ((start_table + row_tables) * 4) {
+              ( [#(player + 1)], )
+            }
+          },
+        )
+      }
     )
   }
-)
+}
+

@@ -283,7 +283,7 @@ def sort_vals(d):
     return {k: v for k, v in sorted(d.items(), key=lambda item: -item[1])}
 
 def main():
-    rt = Chart(num_players=32, num_rounds=12)
+    rt = Chart(num_players=24, num_rounds=12)
     print(rt)
     # If it stops after the first round,
     # then the counts should be 1 or less,
