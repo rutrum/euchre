@@ -1,0 +1,5 @@
+run:
+    uv run gen.py
+
+watch:
+    watchexec --watch=hello.py -- uv run hello.py

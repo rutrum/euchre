@@ -1,5 +1,0 @@
-run:
-    uv run hello.py
-
-watch:
-    watchexec --watch=hello.py -- uv run hello.py

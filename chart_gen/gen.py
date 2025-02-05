@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 import json
+import argparse
 
 def get_partner_seat(player_seat):
     """Return the seat number of the partner of a player seat."""
@@ -39,9 +40,10 @@ class Pair:
 
 
 class Chart:
-    def __init__(self, num_players, num_rounds):
+    def __init__(self, num_players, num_rounds, max_loops):
         self.num_players = num_players
         self.num_rounds = num_rounds
+        self.max_loops = max_loops
         self.chart = np.asarray([
             np.arange(self.num_players)
             for round in range(self.num_rounds)
@@ -122,15 +124,14 @@ class Chart:
         return False
 
     def refine(self):
-        max_loops = 100000
         cur = 0
-        while cur < max_loops and (self.bad_partners() or self.bad_opponents()):
+        while cur < self.max_loops and (self.bad_partners() or self.bad_opponents()):
             loop_total = 0
             for round in range(self.num_rounds):
                 loop_total += self.refine_round(round)
             cur += loop_total
             #print(cur, loop_total)
-        print(cur)
+        print(f"Stop after {cur} loops.")
 
     def refine_round(self, round):
         total_swaps = 0
@@ -183,7 +184,7 @@ class Chart:
 
                         # see if making the swap improves something else
                         if self.swap_improvements(round, player_seat, another_player_seat) > 4 and np.random.random() > self.skip_chance:
-                            print(f"round {round}: swapping {another_player} and {partner}")
+                            #print(f"round {round}: swapping {another_player} and {partner}")
                             self.swap_players(round, player_seat, another_player_seat)
                             total_swaps += 1
                             break # partner score closer to 1
@@ -283,17 +284,27 @@ def sort_vals(d):
     return {k: v for k, v in sorted(d.items(), key=lambda item: -item[1])}
 
 def main():
-    rt = Chart(num_players=24, num_rounds=12)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--players')
+    parser.add_argument('--rounds')
+    parser.add_argument('--loops')
+    args = parser.parse_args()
+
+    num_players = int(args.players) if args.players is not None else 32
+    num_rounds = int(args.rounds) if args.rounds is not None else 12
+    max_loops = int(args.loops) if args.loops is not None else 10_000
+    
+    rt = Chart(num_players=num_players, num_rounds=num_rounds, max_loops=max_loops)
+    rt.sort_chart()
     print(rt)
     # If it stops after the first round,
     # then the counts should be 1 or less,
     # but it stops swapping anymore
-    print(list(sort_vals(rt.partners_count).items())[:10])
-    print(list(sort_vals(rt.opponents_count).items())[:10])
-    print(f"bad partners: {rt.bad_partners()}")
-    print(f"bad opponents: {rt.bad_opponents()}")
-
-    rt.sort_chart()
+    print("Bad partners:")
+    print([ (pair, count) for (pair, count) in sort_vals(rt.partners_count).items() if count > 1 ][:10])
+    print()
+    print("Bad opponents:")
+    print([ (pair, count) for (pair, count) in sort_vals(rt.opponents_count).items() if count > 2 ][:10])
 
     # filename = f"data/{rt.num_players}players_{rt.num_rounds}rounds.json"
     filename = "data/chart.json"

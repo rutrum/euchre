@@ -1,6 +1,6 @@
 #set page(flipped: true)
 
-#let data = json("../py_euch/data/chart.json")
+#let data = json("../chart_gen/data/chart.json")
 #let chart = data.chart
 
 #let max_tables_per_row = 7;
