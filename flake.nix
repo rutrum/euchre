@@ -10,10 +10,17 @@
       default = pkgs.mkShell {
         name = "euchre";
         buildInputs = with pkgs; [
-          uv
           just
+
+          # python
+          uv
+
+          # typst
           typst
           tinymist
+
+          # rust
+          cargo
           
           # required for numpy
           stdenv.cc.cc

@@ -55,6 +55,7 @@ class Chart:
         
         self.init_partners_count()
         self.init_opponents_count()
+        self.init_seated_count()
         self.refine()
 
     def init_partners_count(self):
@@ -78,11 +79,30 @@ class Chart:
                 self.opponents_count[Pair(left, ahead)] += 1
                 self.opponents_count[Pair(right, ahead)] += 1
 
-    def swap_players(self, round, a_seat, b_seat):
+    def init_seated_count(self):
+        self.seated_count = defaultdict(lambda: 0)
+        for round in range(self.num_rounds):
+            for table in range(self.num_players // 4):
+                me = self.chart[round, 4 * table]
+                ahead = self.chart[round, 4 * table + 1]
+                left = self.chart[round, 4 * table + 2]
+                right = self.chart[round, 4 * table + 3]
+                self.seated_count[Pair(me, left)] += 1
+                self.seated_count[Pair(me, right)] += 1
+                self.seated_count[Pair(me, ahead)] += 1
+                self.seated_count[Pair(left, right)] += 1
+                self.seated_count[Pair(left, ahead)] += 1
+                self.seated_count[Pair(right, ahead)] += 1
+
+    def swap_players(self, round: int, a_seat: int, b_seat: int):
+        """Swap players at seats a and b in round.
+
+        Also updates all running pair counts.
+        """
         a = self.chart[round, a_seat]
         b = self.chart[round, b_seat]
 
-        # First update partner counds
+        # First update partner rounds
         a_partner_seat = get_partner_seat(a_seat)
         a_partner = self.chart[round, a_partner_seat]
         b_partner_seat = get_partner_seat(b_seat)
@@ -93,6 +113,11 @@ class Chart:
         self.partners_count[Pair(a, b_partner)] += 1
         self.partners_count[Pair(b, a_partner)] += 1
 
+        self.seated_count[Pair(a, a_partner)] -= 1
+        self.seated_count[Pair(b, b_partner)] -= 1
+        self.seated_count[Pair(a, b_partner)] += 1
+        self.seated_count[Pair(b, a_partner)] += 1
+
         # Now update opponent counts
         a_opponent_seats = get_opponent_seats(a_seat)
         a_opponents = [ self.chart[round, seat] for seat in a_opponent_seats ]
@@ -102,9 +127,13 @@ class Chart:
         for opp in a_opponents:
             self.opponents_count[Pair(a, opp)] -= 1
             self.opponents_count[Pair(b, opp)] += 1
+            self.seated_count[Pair(a, opp)] -= 1
+            self.seated_count[Pair(b, opp)] += 1
         for opp in b_opponents:
             self.opponents_count[Pair(b, opp)] -= 1
             self.opponents_count[Pair(a, opp)] += 1
+            self.seated_count[Pair(b, opp)] -= 1
+            self.seated_count[Pair(a, opp)] += 1
 
         # do this last ;)
         self.chart[round, a_seat], self.chart[round, b_seat] = self.chart[round, b_seat], self.chart[round, a_seat]
@@ -190,7 +219,7 @@ class Chart:
                             break # partner score closer to 1
         return total_swaps
 
-    def swap_improvements(self, round, seat_a, seat_b):
+    def swap_improvements(self, round: int, seat_a: int, seat_b: int) -> int:
         """Returns a score from 1-6 based on how many improvements are made to counts."""
         a = self.chart[round, seat_a]
         a_partner = self.chart[round, get_partner_seat(seat_a)]
@@ -207,9 +236,15 @@ class Chart:
             + (self.opponents_count[Pair(a, b_opps[1])] < 2)
             + (self.opponents_count[Pair(b, a_opps[0])] < 2)
             + (self.opponents_count[Pair(b, a_opps[1])] < 2)
+            #+ (self.seated_count[Pair(a, b_partner)] == 0)
+            #+ (self.seated_count[Pair(b, a_partner)] == 0)
+            #+ (self.seated_count[Pair(a, b_opps[0])] == 0)
+            #+ (self.seated_count[Pair(a, b_opps[1])] == 0)
+            #+ (self.seated_count[Pair(b, a_opps[0])] == 0)
+            #+ (self.seated_count[Pair(b, a_opps[1])] == 0)
         )
 
-    def seat(self, round, player):
+    def seat(self, round: int, player: int) -> int:
         """Returns the seat of the player in the round."""
         for seat in range(self.num_players):
             if self.chart[round, seat] == player:
@@ -305,6 +340,16 @@ def main():
     print()
     print("Bad opponents:")
     print([ (pair, count) for (pair, count) in sort_vals(rt.opponents_count).items() if count > 2 ][:10])
+
+    print("Not partners:")
+    counts = [ count for (pair, count) in sort_vals(rt.seated_count).items() ]
+    freq = defaultdict(lambda: 0)
+    for count in counts:
+        freq[count] += 1
+    for k, v in freq.items():
+        print(f"{v} pairs matched {k} times")
+    max_pair_count = max(freq.keys())
+    print([ (pair, count) for (pair, count) in sort_vals(rt.seated_count).items() if count == max_pair_count ])
 
     # filename = f"data/{rt.num_players}players_{rt.num_rounds}rounds.json"
     filename = "data/chart.json"
