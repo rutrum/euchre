@@ -1,5 +1,5 @@
-use std::fmt;
 use rand::{self, seq::SliceRandom, Rng};
+use std::fmt;
 
 type Player = u8;
 
@@ -16,9 +16,6 @@ impl Pair {
     }
 }
 
-// TODO: next time, integrate this paircount instead of hashmaps
-// this should help eliminate the errors/bugs/problems with hashmaps
-// retrieving keys that don't exist, hopefully
 #[derive(Debug, Clone)]
 struct PairCount<const SEATS: usize> {
     counts: [[usize; SEATS]; SEATS],
@@ -27,7 +24,7 @@ struct PairCount<const SEATS: usize> {
 impl<const SEATS: usize> PairCount<SEATS> {
     fn new() -> Self {
         Self {
-            counts: [[0; SEATS]; SEATS]
+            counts: [[0; SEATS]; SEATS],
         }
     }
 
@@ -48,14 +45,18 @@ impl<'a, const SEATS: usize> IntoIterator for &PairCount<SEATS> {
     type Item = usize;
     type IntoIter = PairCountIterator<SEATS>;
 
-    fn into_iter(self) -> Self::IntoIter{
-        PairCountIterator{x: 0, y: 0, pair_count: self.clone()}
+    fn into_iter(self) -> Self::IntoIter {
+        PairCountIterator {
+            x: 0,
+            y: 0,
+            pair_count: self.clone(),
+        }
     }
 }
 
-struct PairCountIterator<const SEATS: usize>{
+struct PairCountIterator<const SEATS: usize> {
     pair_count: PairCount<SEATS>,
-    x: usize, 
+    x: usize,
     y: usize,
 }
 
@@ -68,7 +69,7 @@ impl<const SEATS: usize> Iterator for PairCountIterator<SEATS> {
             self.x += 1;
             self.y = self.x;
             if self.x == SEATS {
-                return None
+                return None;
             }
         }
         Some(self.pair_count.counts[self.x][self.y])
@@ -76,14 +77,11 @@ impl<const SEATS: usize> Iterator for PairCountIterator<SEATS> {
 }
 
 const fn get_partner_seat(seat: usize) -> usize {
-    if seat % 2 == 0 {
-        seat + 1
-    } else {
-        seat - 1
-    }
+    seat + 1 - 2 * (seat % 2)
 }
 
 /// Returns the seats of the player, their partner, and the two opponents
+/// MEMOIZE THIS
 const fn get_table_seats(seat: usize) -> (usize, usize, (usize, usize)) {
     let player = seat;
     let partner = get_partner_seat(seat);
@@ -98,8 +96,10 @@ const fn get_table_seats(seat: usize) -> (usize, usize, (usize, usize)) {
     (player, partner, opponents)
 }
 
-const fn get_table_players<const SEATS: usize>(seat: usize, round: &[Player; SEATS]) 
-        -> (Player, Player, (Player, Player)) {
+const fn get_table_players<const SEATS: usize>(
+    seat: usize,
+    round: &[Player; SEATS],
+) -> (Player, Player, (Player, Player)) {
     let (player_seat, partner_seat, opponent_seats) = get_table_seats(seat);
     let player = round[player_seat];
     let partner = round[partner_seat];
@@ -115,7 +115,6 @@ struct Chart<const SEATS: usize, const ROUNDS: usize> {
 }
 
 impl<const S: usize, const R: usize> Chart<S, R> {
-
     /// Create a new valid chart.
     fn new() -> Self {
         let mut rng = rand::rng();
@@ -127,8 +126,8 @@ impl<const S: usize, const R: usize> Chart<S, R> {
             }
             round.shuffle(&mut rng)
         }
-        Self { 
-            rounds, 
+        Self {
+            rounds,
             partner_counts: Self::count_partners(rounds),
             opponent_counts: Self::count_opponents(rounds),
         }
@@ -138,7 +137,7 @@ impl<const S: usize, const R: usize> Chart<S, R> {
         let mut counts = PairCount::new();
         for round in rounds {
             for s in (0..S).step_by(2) {
-                let pair = Pair::new(round[s], round[s+1]);
+                let pair = Pair::new(round[s], round[s + 1]);
                 counts.inc(&pair);
             }
         }
@@ -149,7 +148,7 @@ impl<const S: usize, const R: usize> Chart<S, R> {
         let mut counts = PairCount::new();
         for round in rounds {
             for s in (0..S).step_by(4) {
-                let players = &round[s..s+4];
+                let players = &round[s..s + 4];
                 let pairs = &[
                     Pair::new(players[0], players[2]),
                     Pair::new(players[0], players[3]),
@@ -165,18 +164,22 @@ impl<const S: usize, const R: usize> Chart<S, R> {
     }
 
     fn bad_partner_counts_score(&self) -> usize {
-        self.partner_counts.into_iter().filter(|val| *val > 1).count()
+        self.partner_counts
+            .into_iter()
+            .filter(|val| *val > 1)
+            .count()
     }
 
     fn bad_opponents_counts_score(&self) -> usize {
         // improve/cache this for more performance
-        self.opponent_counts.into_iter().filter(|val| *val > 2).count()
+        self.opponent_counts
+            .into_iter()
+            .filter(|val| *val > 2)
+            .count()
     }
 
     fn swap_seats(&mut self, round_num: usize, a: usize, b: usize) {
         let round = &mut self.rounds[round_num];
-
-        // another idea: instead of hash tables, use an upper triangular matrix
 
         let (player_a, partner_a, opponents_a) = get_table_players(a, &round);
         let (player_b, partner_b, opponents_b) = get_table_players(b, &round);
@@ -187,17 +190,25 @@ impl<const S: usize, const R: usize> Chart<S, R> {
         self.partner_counts.inc(&Pair::new(player_a, partner_b));
         self.partner_counts.inc(&Pair::new(player_b, partner_a));
 
-        self.opponent_counts.dec(&Pair::new(player_a, opponents_a.0));
-        self.opponent_counts.dec(&Pair::new(player_a, opponents_a.1));
+        self.opponent_counts
+            .dec(&Pair::new(player_a, opponents_a.0));
+        self.opponent_counts
+            .dec(&Pair::new(player_a, opponents_a.1));
 
-        self.opponent_counts.dec(&Pair::new(player_b, opponents_b.0));
-        self.opponent_counts.dec(&Pair::new(player_b, opponents_b.1));
+        self.opponent_counts
+            .dec(&Pair::new(player_b, opponents_b.0));
+        self.opponent_counts
+            .dec(&Pair::new(player_b, opponents_b.1));
 
-        self.opponent_counts.inc(&Pair::new(player_a, opponents_b.0));
-        self.opponent_counts.inc(&Pair::new(player_a, opponents_b.1));
+        self.opponent_counts
+            .inc(&Pair::new(player_a, opponents_b.0));
+        self.opponent_counts
+            .inc(&Pair::new(player_a, opponents_b.1));
 
-        self.opponent_counts.inc(&Pair::new(player_b, opponents_a.0));
-        self.opponent_counts.inc(&Pair::new(player_b, opponents_a.1));
+        self.opponent_counts
+            .inc(&Pair::new(player_b, opponents_a.0));
+        self.opponent_counts
+            .inc(&Pair::new(player_b, opponents_a.1));
 
         round.swap(a, b);
     }
@@ -208,11 +219,11 @@ impl<const S: usize, const R: usize> Chart<S, R> {
         let (b, b_partner, b_opponents) = get_table_players(b, &round);
 
         (self.partner_counts.get(&Pair::new(a, b_partner)) < 1) as usize
-        + (self.partner_counts.get(&Pair::new(b, a_partner)) < 1) as usize
-        + (self.opponent_counts.get(&Pair::new(a, b_opponents.0)) < 2) as usize
-        + (self.opponent_counts.get(&Pair::new(a, b_opponents.1)) < 2) as usize
-        + (self.opponent_counts.get(&Pair::new(b, a_opponents.0)) < 2) as usize
-        + (self.opponent_counts.get(&Pair::new(b, a_opponents.1)) < 2) as usize
+            + (self.partner_counts.get(&Pair::new(b, a_partner)) < 1) as usize
+            + (self.opponent_counts.get(&Pair::new(a, b_opponents.0)) < 2) as usize
+            + (self.opponent_counts.get(&Pair::new(a, b_opponents.1)) < 2) as usize
+            + (self.opponent_counts.get(&Pair::new(b, a_opponents.0)) < 2) as usize
+            + (self.opponent_counts.get(&Pair::new(b, a_opponents.1)) < 2) as usize
     }
 }
 
@@ -230,13 +241,16 @@ impl<const S: usize, const R: usize> fmt::Display for Chart<S, R> {
     }
 }
 
-fn refine_with_random_swaps<const S: usize, const R: usize>(mut chart: Chart<S, R>, max_loops: usize) -> Chart<S, R> {
+fn refine_with_random_swaps<const S: usize, const R: usize>(
+    mut chart: Chart<S, R>,
+    max_loops: usize,
+) -> Chart<S, R> {
     let mut rng = rand::rng();
 
     for iteration in 0..max_loops {
         if chart.bad_opponents_counts_score() + chart.bad_partner_counts_score() == 0 {
-            println!("{iteration}");
-            break
+            println!("Finished after {iteration} iterations.");
+            break;
         }
         for r in 0..R {
             let round = chart.rounds[r];
@@ -251,9 +265,11 @@ fn refine_with_random_swaps<const S: usize, const R: usize>(mut chart: Chart<S, 
                         if !table_players.contains(&another_player) {
                             // swapping would change something
                             // how much does it change?  Is it an improvement?
-                            if chart.swap_improvements(r, seat, another_seat) > 4 && rng.random_bool(0.8) {
+                            if rng.random_bool(0.2)
+                                && chart.swap_improvements(r, seat, another_seat) > 3
+                            {
                                 chart.swap_seats(r, seat, another_seat);
-                                break
+                                break;
                             }
                         }
                     }
@@ -264,11 +280,14 @@ fn refine_with_random_swaps<const S: usize, const R: usize>(mut chart: Chart<S, 
                         for another_seat in 0..S {
                             let (another_player, ..) = get_table_players(another_seat, &round);
                             if !table_players.contains(&another_player) {
-                                // swapping would change something
-                                // how much does it change?  Is it an improvement?
-                                if chart.swap_improvements(r, seat, another_seat) > 4 && rng.random_bool(0.8) {
+                                // what if the min swap improvements decreased over time?
+                                // so once a good solution was found, higher risks were taken to
+                                // find better ones
+                                if rng.random_bool(0.2)
+                                    && chart.swap_improvements(r, seat, another_seat) > 4
+                                {
                                     chart.swap_seats(r, seat, another_seat);
-                                    break
+                                    break;
                                 }
                             }
                         }
@@ -278,6 +297,81 @@ fn refine_with_random_swaps<const S: usize, const R: usize>(mut chart: Chart<S, 
         }
     }
     chart
+}
+
+fn refine_genetic_algorithm<const S: usize, const R: usize>(
+    population: usize,
+    max_generations: usize,
+    max_loops: usize,
+) -> Chart<S, R> {
+    // generate population charts
+    // then run the refine algorithm max_loops times on each
+    // then filter and mutate
+    // do this for max_generations
+    let mut charts: Vec<Chart<S, R>> = (0..population).map(|_| Chart::new()).collect();
+    let mut rng = rand::rng();
+
+    let keep_count = (population as f32 * 0.2).floor() as usize;
+    let new_count = (population as f32 * 0.2).floor() as usize;
+    let mutated_count = population - keep_count - new_count;
+
+    for gen in 0..max_generations {
+        let mut refined_charts: Vec<Chart<S, R>> = charts
+            .into_iter()
+            .enumerate()
+            .map(|(i, c)| {
+                if i > 10 {
+                    refine_with_random_swaps(c, max_loops)
+                } else {
+                    c
+                }
+            })
+            .collect();
+
+        (&mut refined_charts).sort_by(|a, b| {
+            (a.bad_opponents_counts_score() + a.bad_partner_counts_score())
+                .cmp(&(b.bad_opponents_counts_score() + a.bad_partner_counts_score()))
+        });
+
+        refined_charts.truncate(keep_count + mutated_count);
+
+        let mut to_mutate = refined_charts.split_off(keep_count);
+        to_mutate.iter_mut().for_each(|c| {
+            for _ in 0..10 {
+                random_swap(c, &mut rng)
+            }
+        });
+
+        let mut new_charts: Vec<Chart<S, R>> = (0..new_count).map(|_| Chart::new()).collect();
+
+        refined_charts.append(&mut new_charts);
+
+        charts = refined_charts;
+
+        let best_score =
+            charts[0].bad_opponents_counts_score() + charts[0].bad_partner_counts_score();
+        if best_score == 0 {
+            break;
+        }
+
+        println!("Generation {gen}: {best_score}");
+    }
+
+    // TODO: this shifts the elements of chart, probably doesn't matter
+    charts.remove(0)
+}
+
+fn random_swap<const S: usize, const R: usize>(
+    chart: &mut Chart<S, R>,
+    rng: &mut rand::rngs::ThreadRng,
+) {
+    let round = rng.random_range(0..R);
+    let seat_a = rng.random_range(0..S);
+    let mut seat_b = seat_a;
+    while seat_a == seat_b {
+        seat_b = rng.random_range(0..S);
+    }
+    chart.rounds[round].swap(seat_a, seat_b);
 }
 
 fn main() {
@@ -293,4 +387,13 @@ fn main() {
     println!("Bad partners: {:?}", chart.bad_partner_counts_score());
     println!("Bad opponents: {:?}", chart.bad_opponents_counts_score());
 
+    let chart: Chart<20, 16> = refine_genetic_algorithm(1000, 500, 20);
+
+    println!("{}", chart);
+    println!("Bad partners: {:?}", chart.bad_partner_counts_score());
+    println!("Bad opponents: {:?}", chart.bad_opponents_counts_score());
 }
+
+// ideas
+// try compressing by assuming the first row is always 1..S, don't store that round
+// multiprocessing?

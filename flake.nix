@@ -21,6 +21,8 @@
 
           # rust
           cargo
+          rustfmt
+          cargo-flamegraph # profiling?
           
           # required for numpy
           stdenv.cc.cc
