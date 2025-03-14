@@ -5,3 +5,4 @@ __pycache__
 .direnv
 *.svg
 perf.*
+profile_output*

@@ -8,18 +8,26 @@
 import numpy as np
 from itertools import permutations # maybe
 from pprint import pprint
+from line_profiler import profile
 
 def get_table_seats(seat) -> tuple[int, int, tuple[int, int]]:
-    player = seat;
     partner = seat + 1 - 2 * (seat % 2)
 
-    table = seat / 4;
+    table = seat // 4
     if seat % 4 < 2:
         opponents = (table * 4 + 2, table * 4 + 3)
     else:
         opponents = (table * 4 + 0, table * 4 + 1)
+        
+    return (seat, partner, opponents)
 
-    return (player, partner, opponents)
+def get_table_players(round, seat):
+    player, partner, opponents = get_table_seats(seat)
+    return (
+        round[player],
+        round[partner],
+        (round[opponents[0]], round[opponents[1]])
+    )
 
 class Chart:
     def __init__(self, num_players):
@@ -33,7 +41,8 @@ class Chart:
         self.partner_counts = np.zeros((num_players + 1, num_players + 1), dtype=int)
 
         # ignore for first pass
-        #self.opponent_counts = np.zeros_like(self.partner_counts)
+        self.opponent_counts = np.zeros_like(self.partner_counts, dtype=int)
+
 
     def get_partner_counts(self, left: int, right: int) -> int:
         if left < right:
@@ -44,10 +53,8 @@ class Chart:
     def inc_partner_counts(self, left: int, right: int) -> int:
         if left < right:
             self.partner_counts[left, right] += 1
-            return self.partner_counts[left, right]
         else:
             self.partner_counts[right, left] += 1
-            return self.partner_counts[right, left]
 
     def dec_partner_counts(self, left, right):
         if left < right:
@@ -55,20 +62,55 @@ class Chart:
         else:
             self.partner_counts[right, left] -= 1
 
-    def set(self, round, seat, player) -> int:
-        self.rounds[round, seat] = player
-        _, partner_seat, opponent_seats = get_table_seats(seat)
-        if (partner := self.rounds[round, partner_seat]) != 0:
-            return self.inc_partner_counts(player, partner)
+    def get_opponent_counts(self, left: int, right: int) -> int:
+        if left < right:
+            return self.opponent_counts[left, right]
         else:
-            return self.get_partner_counts(player, partner)
+            return self.opponent_counts[right, left]
 
-    def unset(self, round, seat):
-        player = self.rounds[round, seat]
-        self.rounds[round, seat] = 0
-        _, partner_seat, opponent_seats = get_table_seats(seat)
-        if (partner := self.rounds[round, partner_seat]) != 0:
+    def inc_opponent_counts(self, left: int, right: int) -> int:
+        if left < right:
+            self.opponent_counts[left, right] += 1
+        else:
+            self.opponent_counts[right, left] += 1
+
+    def dec_opponent_counts(self, left, right):
+        if left < right:
+            self.opponent_counts[left, right] -= 1
+        else:
+            self.opponent_counts[right, left] -= 1
+
+    @profile
+    def set(self, round_num, seat, player) -> int:
+        self.rounds[round_num, seat] = player
+        player, partner, opponents = get_table_players(self.rounds[round_num], seat)
+
+        if partner != 0:
+            self.inc_partner_counts(player, partner)
+
+        for opp in opponents:
+            if opp != 0:
+                self.inc_opponent_counts(player, opp)
+
+        return (
+            self.get_partner_counts(player, partner),
+            (
+                int(self.get_opponent_counts(player, opponents[0])),
+                int(self.get_opponent_counts(player, opponents[1])),
+            )
+        )
+
+    @profile
+    def unset(self, round_num, seat):
+        player, partner, opponents = get_table_players(self.rounds[round_num], seat)
+        self.rounds[round_num, seat] = 0
+
+        if partner != 0:
             self.dec_partner_counts(player, partner)
+
+        for opp in opponents:
+            if opp != 0:
+                self.dec_opponent_counts(player, opp)
         
     def __str__(self):
         s = ""
@@ -79,37 +121,44 @@ class Chart:
         return s
 
 
-def dfs(chart, round=0, seat=0):
-    for player in range(1, chart.num_players+1):
-        if player not in chart.rounds[round]:
-            partner_count = chart.set(round, seat, player)
-            print(round, seat, player, "=", partner_count)
-            if partner_count > 1:
-                chart.unset(round, seat)
-                continue
+def dfs_init(chart):
+    return dfs(chart, list(range(1, chart.num_players + 1)), 0, 0)
 
-            # great, recurse
-            if round == chart.num_rounds - 1 and seat == chart.num_players - 1:
-                # finished, return
-                return chart
-            elif seat == chart.num_players - 1:
-                response = dfs(chart, round=round+1, seat=0)
-            else:
-                response = dfs(chart, round=round, seat=seat+1)
+# speed up idea: remove recursion
+@profile
+def dfs(chart, players, round, seat):
+    for player in players:
+        partner_count, opponent_counts = chart.set(round, seat, player)
 
-            if response is not None:
-                return response
-
-            
-            # no response found, go to next iteration
+        if partner_count > 1 or opponent_counts[0] > 2 or opponent_counts[1] > 2:
             chart.unset(round, seat)
+            continue
+
+        # great, recurse
+        #if round == chart.num_rounds - 1 and seat == chart.num_players - 1:
+        if round == 3 and seat == chart.num_players - 1:
+            # finished, return
+            return chart
+
+        if seat == chart.num_players - 1:
+            response = dfs(chart, list(range(1, chart.num_players+1)), round=round+1, seat=0)
+        else:
+            next_players = players[:]
+            next_players.remove(player)
+            response = dfs(chart, next_players, round=round, seat=seat+1)
+
+        if response is not None:
+            return response
+
+        # no response found, go to next iteration
+        chart.unset(round, seat)
+
+@profile
+def main():
+    chart = Chart(8)
+    print(dfs_init(chart))
+    pprint(chart.partner_counts)
+    pprint(chart.opponent_counts)
 
 if __name__ == "__main__":
-
-    # this slows down at 20
-    # try using Cython for fun
-    # this is decoration that "precompiles" python for you, or something
-
-    chart = Chart(16)
-    print(dfs(chart))
-    pprint(chart.partner_counts)
+    main()

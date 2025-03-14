@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "line-profiler>=4.2.0",
     "numpy>=2.2.0",
     "python-constraint2>=2.1.0",
 ]

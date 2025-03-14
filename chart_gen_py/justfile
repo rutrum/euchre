@@ -1,5 +1,8 @@
 run:
     uv run search.py
 
+profile:
+    LINE_PROFILE=1 uv run search.py
+
 watch:
     watchexec --watch=hello.py -- uv run hello.py
