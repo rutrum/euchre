@@ -1,6 +1,8 @@
 use rand::{self, seq::SliceRandom, Rng};
 use std::fmt;
 
+use chart_gen_rs::get_table_players;
+
 type Player = u8;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -74,37 +76,6 @@ impl<const SEATS: usize> Iterator for PairCountIterator<SEATS> {
         }
         Some(self.pair_count.counts[self.x][self.y])
     }
-}
-
-const fn get_partner_seat(seat: usize) -> usize {
-    seat + 1 - 2 * (seat % 2)
-}
-
-/// Returns the seats of the player, their partner, and the two opponents
-/// MEMOIZE THIS
-const fn get_table_seats(seat: usize) -> (usize, usize, (usize, usize)) {
-    let player = seat;
-    let partner = get_partner_seat(seat);
-    let table = seat / 4;
-
-    let opponents = if seat % 4 < 2 {
-        (table * 4 + 2, table * 4 + 3)
-    } else {
-        (table * 4 + 0, table * 4 + 1)
-    };
-
-    (player, partner, opponents)
-}
-
-const fn get_table_players<const SEATS: usize>(
-    seat: usize,
-    round: &[Player; SEATS],
-) -> (Player, Player, (Player, Player)) {
-    let (player_seat, partner_seat, opponent_seats) = get_table_seats(seat);
-    let player = round[player_seat];
-    let partner = round[partner_seat];
-    let opponents = (round[opponent_seats.0], round[opponent_seats.1]);
-    (player, partner, opponents)
 }
 
 #[derive(Debug)]

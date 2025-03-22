@@ -1,5 +1,8 @@
-run:
-    cargo run
+default:
+    cargo run --bin search --release
+
+run BIN:
+    cargo run --bin {{BIN}}
 
 test:
     cargo test
