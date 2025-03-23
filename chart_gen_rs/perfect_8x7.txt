@@ -21,6 +21,6 @@ Opponent counts:
    0   0   0   2   2   2   2   2
    0   0   0   0   2   2   2   2
    0   0   0   0   0   2   2   2
-   0   0   0   0   0   0   2   2
+   0   0   0   0   0   0   2   2  // this means player x can't be opponents with any i such that round[i] > 1
    0   0   0   0   0   0   0   2
    0   0   0   0   0   0   0   0
