@@ -1,5 +1,5 @@
 default:
-    cargo run --bin search --release
+    time cargo run --bin search_improved --release
 
 run BIN:
     cargo run --bin {{BIN}}

@@ -226,3 +226,10 @@ fn main() {
     // println!("{:?}", new_chart.partner_counts);
     // println!("{:?}", new_chart.opponent_counts);
 }
+
+// Baseline: first timing of dfs_loop
+//   8 players
+//   with opponent constraint
+// real    30m47.170s
+// user    30m41.211s
+// sys     0m0.108s
