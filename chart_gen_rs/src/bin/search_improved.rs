@@ -51,11 +51,37 @@ struct Chart<const SEATS: usize, const ROUNDS: usize> {
 
 impl<const S: usize, const R: usize> Chart<S, R> {
     fn new() -> Self {
-        Self {
+        // TODO: consider prefilling the first row
+        // and the first 2 columns of each row
+        // then modify the algorithm to skip those parts
+        // in a way, that turns the 12x11 grid down to 10x10...not really
+        let mut chart = Self {
             rounds: [[0; S]; R],
             partner_counts: PairCount::new(),
             opponent_counts: PairCount::new(),
+        };
+        // first row
+        for p in 1..=S as Player {
+            let seat = p as usize - 1;
+            chart.rounds[0][seat] = p;
+            if seat % 2 == 1 {
+                chart.partner_counts.inc(p - 1, p);
+            }
+            if seat % 4 == 2 {
+                chart.opponent_counts.inc(p - 2, p);
+                chart.opponent_counts.inc(p - 1, p);
+            } else if seat % 4 == 3 {
+                chart.opponent_counts.inc(p - 3, p);
+                chart.opponent_counts.inc(p - 2, p);
+            }
         }
+        // first two columns
+        for r in 1..R {
+            chart.rounds[r][0] = 1;
+            chart.rounds[r][1] = r as Player + 2;
+            chart.partner_counts.inc(1, r as Player + 2);
+        }
+        chart
     }
 }
 
@@ -76,10 +102,12 @@ impl<const S: usize, const R: usize> fmt::Display for Chart<S, R> {
 fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
     mut chart: Chart<SEATS, ROUNDS>,
 ) -> Option<Chart<SEATS, ROUNDS>> {
-    let mut round = 0;
-    let mut seat = 0;
-    let mut player: Player = 0;
+    let mut round = 1;
+    let mut seat = 2;
+    let mut player: Player = 3;
     let mut round_players = [false; SEATS];
+    round_players[0] = true;
+    round_players[round + 1] = true;
 
     let mut loop_count: u64 = 0;
 
@@ -93,8 +121,9 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         } as Player)
         .collect();
 
-    println!("max");
-    max_player_per_seat.iter().for_each(|x| println!("{x}"));
+    print!("max player per seat: ");
+    max_player_per_seat.iter().for_each(|x| print!("{x} "));
+    println!();
 
     let mut loop_count_by_seat = [[0_u64; SEATS]; ROUNDS];
 
@@ -109,7 +138,12 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         }
 
         if loop_count > 10_000_000_000 {
-            break None;
+            println!("Final count: {loop_count}");
+            for r in loop_count_by_seat {
+                let s: u64 = r.iter().sum();
+                println!("{s}: {r:?}");
+            }
+            return Some(chart);
         }
 
         // what if I could check right here, or just know
@@ -117,19 +151,35 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         // what if as I assigned players, I also scatched off seats
         // kind of like round_players...
 
+        //println!("round {round} on seat {seat} testing player {player}");
+
         if player == max_player_per_seat[seat as usize] {
             // that was last player, go to last seat
             assert_eq!(chart.rounds[round][seat], 0);
 
-            if seat > 0 {
+            if seat > 2 {
                 seat -= 1;
-            } else if round > 0 {
+            } else if round > 1 {
                 round -= 1;
                 seat = SEATS - 1;
                 round_players = [true; SEATS];
+                // something blundered here.  Something about the state of the
+                // chart at this point tells us something about why the round
+                // we just tried failed
+                // in this case, it's exactly the next table that failed.  Why?
+
+                //println!("Final count: {loop_count}");
+                //for r in loop_count_by_seat {
+                //    let s: u64 = r.iter().sum();
+                //    println!("{s}: {r:?}");
+                //}
+                //println!("{chart}");
+                //println!("Partner counts: \n{}", chart.partner_counts);
+                //println!("Opponent counts: \n{}", chart.opponent_counts);
+                //println!();
             } else {
                 // tried everything, failed
-                return None;
+                return Some(chart);
             }
 
             // undo the last assignment
@@ -159,25 +209,22 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         // and see if present in right's partners < 1
 
         // prefilling the left 2 players might help,
-        // but I suspect most the "trial and error" happens at
-        // the last couple tables, where players options are low and
-        // constraints are highest
-        // I could record the number of loops for each seat/round
-        // that would help.
+        // actually, it does, probably.  By prefilling, it enforces the last
+        // bit of symmetry/order: the rounds are in order based on the partner
+        // of player 1.
+
+        // TODO: this would be relatively easy, and I think improve results
+        // dramatically for benchmarks.  Do this first when you get back to this.
 
         if round_players[player as usize - 1] {
             continue;
             // here player is 1 to 12
         }
 
-        // can I do this calculation in place or one at a time?
-        // it might be faster and I only need to calculate left/right when
-        // partner succeeds
-        // I'm betting the compiler is on it, however...
         let (_, partner, (left, right)) = get_table_players_unordered(seat, &chart.rounds[round]);
 
-        // still, left and right aren't necessary if partner check fails
-        // so maybe this conditional should be broken up more
+        // heuristic
+        // if in the first half of rounds, force options that make opponents = 1
 
         if (partner == 0 || chart.partner_counts.get(player, partner) < 1)
             && (left == 0
@@ -187,8 +234,6 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             // valid player assignment, go to next seat
             chart.rounds[round][seat] = player;
 
-            // is there a chance I could do this increment and it not matter?
-            // that would require partner_count have (seats+1)^2
             if partner > 0 {
                 chart.partner_counts.inc(player, partner);
             }
@@ -206,17 +251,20 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                     // the right partner should be greater than the left
                     player = chart.rounds[round][seat - 1];
                 } else if seat % 4 == 2 {
-                    // the first opponent at a table should be greater than the player
+                    // the first right opponent should be greater than the first left opponent
                     player = chart.rounds[round][seat - 2];
                 } else if seat % 4 == 0 {
                     // the first person of the next table should be greater than last
                     player = chart.rounds[round][seat - 4];
                 }
             } else if round < ROUNDS - 1 {
-                seat = 0;
+                seat = 2;
                 round += 1;
+
                 round_players = [false; SEATS];
-                player = 0;
+                round_players[0] = true;
+                round_players[round + 1] = true;
+                player = 1;
             } else {
                 // found it!
                 println!("Final count: {loop_count}");
@@ -234,6 +282,10 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
 fn main() {
     //let chart = Chart::<8, 7>::new();
+    //println!("{chart}");
+    //println!("Partner counts: \n{}", chart.partner_counts);
+    //println!("Opponent counts: \n{}", chart.opponent_counts);
+
     //let chart = Chart::<12, 6>::new();
     let chart = Chart::<12, 7>::new();
     let new_chart = dfs_loop(chart).unwrap();
@@ -379,5 +431,40 @@ fn main() {
 //    }
 //}
 
+// TODO: instead of loops above, why not treat these as bitsets?
+// then do & and | operators?  Not sure this applies, but it could
+// for any checks that involve for loops over the partner counts
+
+// If I want to do the above, I need to be able to look far in advance for problems...at least
+// the next table, or perhaps the next round.  Can I fabricate a scenario where
+// every possible next round is invalid?  Clearly this happens, when you see how often
+// the first value is tried over and over again in a round.
+// This one I'm looking at has 12_93339 and another 109_35093 in the first cell.
+
 // After removing duplicate checks for left AND right...if left is nonzero, so is right
 // real    0m55.372s
+
+// Another idea...redo this whole thing
+// but generate all the valid pairs of players, then assign that way.
+
+// I ran some computation overnight.  7 rounds, 12 people
+// real    594m45.789s
+// I think if I reran this after tinkering it, it might be 8/9 hours
+
+// After pre-setting the first row and first two columns
+// 8 players:
+// 33696
+
+// 12 players, 6 rounds:
+// 8470
+
+// 12 players, 7 rounds:
+// 71196_08816
+// real    0m38.368s
+// That feels very large, but I dont think I've
+// ever gotten that value before.  So cool, now we have 7 rows achievable
+// of the 12 in 38s.
+// Still need to get that value down to milliseconds, unfortunately
+// But I should have hope, since filling in the first two spots
+// actually substatially decreases the scaling of the problem, the same
+// way enforcing the first spot to be 1 did.
