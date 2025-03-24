@@ -51,10 +51,6 @@ struct Chart<const SEATS: usize, const ROUNDS: usize> {
 
 impl<const S: usize, const R: usize> Chart<S, R> {
     fn new() -> Self {
-        // TODO: consider prefilling the first row
-        // and the first 2 columns of each row
-        // then modify the algorithm to skip those parts
-        // in a way, that turns the 12x11 grid down to 10x10...not really
         let mut chart = Self {
             rounds: [[0; S]; R],
             partner_counts: PairCount::new(),
@@ -137,13 +133,12 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             println!("{loop_count}");
         }
 
-        if loop_count > 10_000_000_000 {
-            println!("Final count: {loop_count}");
+        if loop_count % 10_000_000_000 == 0 {
+            println!("Count: {loop_count}");
             for r in loop_count_by_seat {
                 let s: u64 = r.iter().sum();
                 println!("{s}: {r:?}");
             }
-            return Some(chart);
         }
 
         // what if I could check right here, or just know
@@ -208,14 +203,6 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         // scan the opponent_table for player's opponents < 2
         // and see if present in right's partners < 1
 
-        // prefilling the left 2 players might help,
-        // actually, it does, probably.  By prefilling, it enforces the last
-        // bit of symmetry/order: the rounds are in order based on the partner
-        // of player 1.
-
-        // TODO: this would be relatively easy, and I think improve results
-        // dramatically for benchmarks.  Do this first when you get back to this.
-
         if round_players[player as usize - 1] {
             continue;
             // here player is 1 to 12
@@ -223,13 +210,47 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
         let (_, partner, (left, right)) = get_table_players_unordered(seat, &chart.rounds[round]);
 
-        // heuristic
-        // if in the first half of rounds, force options that make opponents = 1
+        // another check could be before the last table
+        // can I look at the remaining players and try to find an inconsistency?
+        // could I look at all permutations of the final four players and quick early?
+        // 4!=4*3*2=24/8 symmetries = 3 possibilities
+        // I could check 3 possibilities probably without doing this loop and backup stuff
+        // of the four
+        // the least is in the left
+        // any of the three are its partner
+        // the final two are in order
+        // if I know a < b < c < d then check
+        // a, b, c, d
+        // a, c, b, d
+        // a, d, b, c
+        // how can I check if these are valid?
+        // just check directly
+        // there might be recursion here, or a subproblem
+        // without loss of generality:
+        // is part(ab) < 1?
+        // is part(cd) < 1?
+        // is opp(ac) < 2?
+        // is opp(ad) < 2?
+        // is opp(bc) < 2?
+        // is opp(bd) < 2?
+        // I'm trying to short circuit here
+        // thats 3*6=18 conditions/computations to check, which means 18 lookups
+        // that's not even true... There's overlap!  I should check those first,
+        // which is the opponent constraints
+        // pairs: ab, ac, ad, cd, bd, bc (all of them)
+        // opps: ac, ad, ab, bc, bd, cd (only 6)
+        // so thats 12 looksup max
+
+        // the "cool" part about this is that if I don't invalidate a solution
+        // I can return a fixed list of solutions
+        // my concern is how I recurse/undo this
+        // I'll first just try "if these fail quit early"
+        // they later maybe try "well 2 solutions fit, lets loop over these exact two"
 
         if (partner == 0 || chart.partner_counts.get(player, partner) < 1)
             && (left == 0
-                || (chart.opponent_counts.get(player, left) < 2)
-                    && chart.opponent_counts.get(player, right) < 2)
+                || (chart.opponent_counts.get(player, left) < 2
+                    && chart.opponent_counts.get(player, right) < 2))
         {
             // valid player assignment, go to next seat
             chart.rounds[round][seat] = player;
@@ -287,7 +308,7 @@ fn main() {
     //println!("Opponent counts: \n{}", chart.opponent_counts);
 
     //let chart = Chart::<12, 6>::new();
-    let chart = Chart::<12, 7>::new();
+    let chart = Chart::<12, 10>::new();
     let new_chart = dfs_loop(chart).unwrap();
     println!("{new_chart}");
     println!("Partner counts: \n{}", new_chart.partner_counts);
@@ -458,8 +479,8 @@ fn main() {
 // 12 players, 6 rounds:
 // 8470
 
-// 12 players, 7 rounds:
-// 71196_08816
+// 12 players, 7 rounds: [NEW BENCHMARK]
+// 71124_16763
 // real    0m38.368s
 // That feels very large, but I dont think I've
 // ever gotten that value before.  So cool, now we have 7 rows achievable
@@ -468,3 +489,11 @@ fn main() {
 // But I should have hope, since filling in the first two spots
 // actually substatially decreases the scaling of the problem, the same
 // way enforcing the first spot to be 1 did.
+
+// getting lucky
+
+// 12 players, 8 rounds:
+// 71417_43762
+// 12 players, 9 rounds:
+// 71526_07753
+// 12 players, 10 rounds:
