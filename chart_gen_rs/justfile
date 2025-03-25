@@ -3,7 +3,8 @@ default:
     time cargo run --bin search_memory --release 
 
 run BIN:
-    cargo run --bin {{BIN}}
+    cargo build --bin {{BIN}} --release
+    time cargo run --bin {{BIN}} --release 
 
 test:
     cargo test

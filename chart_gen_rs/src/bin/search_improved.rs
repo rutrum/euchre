@@ -271,12 +271,12 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 }
 
 fn main() {
-    let chart = Chart::<8, 7>::new();
+    //let chart = Chart::<8, 7>::new();
     //println!("{chart}");
     //println!("Partner counts: \n{}", chart.partner_counts);
     //println!("Opponent counts: \n{}", chart.opponent_counts);
 
-    //let chart = Chart::<12, 6>::new();
+    let chart = Chart::<12, 6>::new();
     //let chart = Chart::<12, 10>::new();
     let new_chart = dfs_loop(chart).unwrap();
     println!("{new_chart}");
@@ -466,3 +466,4 @@ fn main() {
 // 12 players, 9 rounds:
 // 71526_07753
 // 12 players, 10 rounds:
+// 822_44287_39017
