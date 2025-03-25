@@ -105,6 +105,8 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
     round_players[0] = true;
     round_players[round + 1] = true;
 
+    let mut last_table_options: Vec<(usize, [Player; 4])> = Vec::with_capacity(2 * ROUNDS);
+
     let mut loop_count: u64 = 0;
 
     let max_player_per_seat: Vec<Player> = (0..SEATS)
@@ -146,7 +148,7 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         // what if as I assigned players, I also scatched off seats
         // kind of like round_players...
 
-        //println!("round {round} on seat {seat} testing player {player}");
+        //println!("round {round} on seat {seat} testing player {}", player + 1);
 
         if player == max_player_per_seat[seat as usize] {
             // that was last player, go to last seat
@@ -155,9 +157,81 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             if seat > 2 {
                 seat -= 1;
             } else if round > 1 {
+                // try the next stack
                 round -= 1;
-                seat = SEATS - 1;
-                round_players = [true; SEATS];
+                if last_table_options.last().map(|x| x.0).unwrap_or(0) == round {
+                    // look for rust way to do this
+                    let a = chart.rounds[round][SEATS - 4];
+                    let b = chart.rounds[round][SEATS - 3];
+                    let c = chart.rounds[round][SEATS - 2];
+                    let d = chart.rounds[round][SEATS - 1];
+                    let old_table = [a, b, c, d];
+
+                    // update counts
+                    chart.partner_counts.dec(a, b);
+                    chart.partner_counts.dec(c, d);
+                    chart.opponent_counts.dec(a, c);
+                    chart.opponent_counts.dec(a, d);
+                    chart.opponent_counts.dec(b, c);
+                    chart.opponent_counts.dec(b, d);
+
+                    let (_, table @ [a, b, c, d]) = last_table_options.pop().unwrap();
+
+                    // this could be more clever
+                    chart.partner_counts.inc(a, b);
+                    chart.partner_counts.inc(c, d);
+                    chart.opponent_counts.inc(a, c);
+                    chart.opponent_counts.inc(a, d);
+                    chart.opponent_counts.inc(b, c);
+                    chart.opponent_counts.inc(b, d);
+
+                    chart.rounds[round][SEATS - 4..].copy_from_slice(&table);
+
+                    round += 1;
+
+                    player = 1;
+                    continue;
+                } else {
+                    // no other tables to try
+                    // back up to last seat
+
+                    // Update last table
+                    let (a, b, c, d) = (
+                        chart.rounds[round][SEATS - 4],
+                        chart.rounds[round][SEATS - 3],
+                        chart.rounds[round][SEATS - 2],
+                        chart.rounds[round][SEATS - 1],
+                    );
+
+                    // update counts
+                    chart.partner_counts.dec(a, b);
+                    chart.partner_counts.dec(c, d);
+                    chart.opponent_counts.dec(a, c);
+                    chart.opponent_counts.dec(a, d);
+                    chart.opponent_counts.dec(b, c);
+                    chart.opponent_counts.dec(b, d);
+
+                    // update SEATS-5 player
+                    seat = SEATS - 5;
+                    player = chart.rounds[round][seat];
+                    let partner = chart.rounds[round][seat - 1];
+                    let left = chart.rounds[round][seat - 2];
+                    let right = chart.rounds[round][seat - 3];
+
+                    chart.partner_counts.dec(player, partner);
+                    chart.opponent_counts.dec(player, left);
+                    chart.opponent_counts.dec(player, right);
+
+                    // unset all the players
+                    round_players = [true; SEATS];
+                    for &p in &chart.rounds[round][SEATS - 5..] {
+                        round_players[p as usize - 1] = false;
+                    }
+                    chart.rounds[round][seat..].copy_from_slice(&[0, 0, 0, 0, 0]);
+
+                    continue;
+                }
+
                 // something blundered here.  Something about the state of the
                 // chart at this point tells us something about why the round
                 // we just tried failed
@@ -237,7 +311,68 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                 seat += 1;
                 round_players[player as usize - 1] = true;
 
-                if seat % 2 == 1 {
+                if seat == SEATS - 4 {
+                    // special behavior
+                    // should I check this before assignmment? yes
+                    let mut table_options = get_table_options(&chart, &round_players);
+
+                    // is there at least one table?
+                    match table_options.pop() {
+                        Some(table @ [a, b, c, d]) => {
+                            // assign table
+                            chart.rounds[round][SEATS - 4..].copy_from_slice(&table);
+
+                            // update counts
+                            chart.partner_counts.inc(a, b);
+                            chart.partner_counts.inc(c, d);
+                            chart.opponent_counts.inc(a, c);
+                            chart.opponent_counts.inc(a, d);
+                            chart.opponent_counts.inc(b, c);
+                            chart.opponent_counts.inc(b, d);
+
+                            // add other tables to stack
+                            for option in table_options {
+                                last_table_options.push((round, option));
+                            }
+
+                            // setup for next round
+                            if round < ROUNDS - 1 {
+                                seat = 2;
+                                round += 1;
+
+                                round_players = [false; SEATS];
+                                round_players[0] = true;
+                                round_players[round + 1] = true;
+                                player = 1;
+                            } else {
+                                // winner?
+                                println!("Final count: {loop_count}");
+                                for r in loop_count_by_seat {
+                                    let s: u64 = r.iter().sum();
+                                    println!("{s}: {r:?}");
+                                }
+                                return Some(chart);
+                            }
+                        }
+                        None => {
+                            // we can unwind now
+                            // just go to next player
+
+                            round_players[player as usize - 1] = false;
+                            seat -= 1;
+
+                            chart.rounds[round][seat] = 0;
+
+                            if partner > 0 {
+                                chart.partner_counts.dec(player, partner);
+                            }
+                            if left > 0 {
+                                chart.opponent_counts.dec(player, left);
+                                chart.opponent_counts.dec(player, right);
+                            }
+                        }
+                    };
+                } else if seat % 2 == 1 {
                     // the right partner should be greater than the left
                     player = chart.rounds[round][seat - 1];
                 } else if seat % 4 == 2 {
@@ -257,6 +392,7 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                 player = 1;
             } else {
                 // found it!
+                // might be dead code now
                 println!("Final count: {loop_count}");
                 for r in loop_count_by_seat {
                     let s: u64 = r.iter().sum();
@@ -268,6 +404,89 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
         // What options can player be here?
         // 0 up to 11
     }
+}
+
+// another check could be before the last table
+// can I look at the remaining players and try to find an inconsistency?
+// could I look at all permutations of the final four players and quick early?
+// 4!=4*3*2=24/8 symmetries = 3 possibilities
+// I could check 3 possibilities probably without doing this loop and backup stuff
+// of the four
+// the least is in the left
+// any of the three are its partner
+// the final two are in order
+// if I know a < b < c < d then check
+// a, b, c, d
+// a, c, b, d
+// a, d, b, c
+// how can I check if these are valid?
+// just check directly
+// there might be recursion here, or a subproblem
+// without loss of generality:
+// is part(ab) < 1?
+// is part(cd) < 1?
+// is opp(ac) < 2?
+// is opp(ad) < 2?
+// is opp(bc) < 2?
+// is opp(bd) < 2?
+// I'm trying to short circuit here
+// thats 3*6=18 conditions/computations to check, which means 18 lookups
+// that's not even true... There's overlap!  I should check those first,
+// which is the opponent constraints
+// pairs: ab, ac, ad, cd, bd, bc (all of them)
+// opps: ac, ad, ab, bc, bd, cd (only 6)
+// so thats 12 looksup max
+fn get_table_options<const SEATS: usize, const ROUNDS: usize>(
+    chart: &Chart<SEATS, ROUNDS>,
+    round_players: &[bool; SEATS],
+) -> Vec<[Player; 4]> {
+    let mut tables = Vec::new();
+
+    let players: Vec<Player> = round_players
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, &is)| if !is { Some(idx as Player + 1) } else { None })
+        .collect();
+
+    assert!(players.len() == 4, "{:?} {:?}", round_players, players);
+
+    let (a, b, c, d) = (players[0], players[1], players[2], players[3]);
+
+    if (chart.partner_counts.get(a, b) < 1)
+        && (chart.partner_counts.get(c, d) < 1)
+        && (chart.opponent_counts.get(a, c) < 2) // 6
+        && (chart.opponent_counts.get(a, d) < 2) // 1
+        && (chart.opponent_counts.get(b, c) < 2) // 2
+        && (chart.opponent_counts.get(b, d) < 2)
+    // 5
+    {
+        tables.push([a, b, c, d]);
+    }
+
+    if (chart.partner_counts.get(a, c) < 1)
+        && (chart.partner_counts.get(b, d) < 1)
+        && (chart.opponent_counts.get(a, b) < 2) // 4
+        && (chart.opponent_counts.get(a, d) < 2) // 1
+        && (chart.opponent_counts.get(c, b) < 2) // 2
+        && (chart.opponent_counts.get(c, d) < 2)
+    // 3
+    {
+        tables.push([a, c, b, d]);
+    }
+
+    if (chart.partner_counts.get(a, d) < 1)
+        && (chart.partner_counts.get(b, c) < 1)
+        && (chart.opponent_counts.get(a, b) < 2) // 4
+        && (chart.opponent_counts.get(a, c) < 2) // 6
+        && (chart.opponent_counts.get(d, b) < 2) // 5
+        && (chart.opponent_counts.get(d, c) < 2)
+    // 3
+    {
+        tables.push([a, d, b, c]);
+    }
+    // I could easily get away with removing two of the checks, but that might be it
+
+    tables
 }
 
 fn main() {
