@@ -6,5 +6,13 @@ run BIN:
     cargo build --bin {{BIN}} --release
     time cargo run --bin {{BIN}} --release 
 
+profile:
+    cargo build --bin search_memory --release
+    perf record --call-graph dwarf ./target/release/search_memory
+    perf report
+
+flamegraph:
+    CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --bin search_memory
+
 test:
     cargo test

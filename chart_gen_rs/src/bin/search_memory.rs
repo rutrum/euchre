@@ -1,5 +1,6 @@
-use chart_gen_rs::{get_table_players, get_table_players_unordered, Player};
 use std::fmt;
+
+pub type Player = usize;
 
 #[derive(Debug, Clone)]
 struct PairCount<const SEATS: usize> {
@@ -95,6 +96,37 @@ impl<const S: usize, const R: usize> fmt::Display for Chart<S, R> {
     }
 }
 
+struct TableStack<const SIZE: usize> {
+    rounds: [usize; SIZE],
+    tables: [[usize; 4]; SIZE],
+    pointer: usize,
+}
+
+impl<const SIZE: usize> TableStack<SIZE> {
+    fn new() -> Self {
+        Self {
+            rounds: [0; SIZE],
+            tables: [[0; 4]; SIZE],
+            pointer: 0,
+        }
+    }
+
+    fn push(&mut self, round: usize, table: [usize; 4]) {
+        self.rounds[self.pointer] = round;
+        self.tables[self.pointer] = table;
+        self.pointer += 1;
+    }
+
+    fn peek_round(&self) -> usize {
+        self.rounds[self.pointer - 1]
+    }
+
+    fn pop(&mut self) -> [usize; 4] {
+        self.pointer -= 1;
+        self.tables[self.pointer]
+    }
+}
+
 fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
     mut chart: Chart<SEATS, ROUNDS>,
 ) -> Option<Chart<SEATS, ROUNDS>> {
@@ -105,7 +137,9 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
     round_players[0] = true;
     round_players[round + 1] = true;
 
-    let mut last_table_options: Vec<(usize, [Player; 4])> = Vec::with_capacity(2 * ROUNDS);
+    // 0 index represents round: 0 is null
+    // 1-4 index are the four players
+    let mut last_table_stack = TableStack::<36>::new();
 
     let mut loop_count: u64 = 0;
 
@@ -162,30 +196,41 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                 chart.rounds[round][seat] = 0;
                 round_players[player as usize - 1] = false;
 
-                let (_, partner, (left, right)) = get_table_players(seat, &chart.rounds[round]);
-
-                if partner > 0 {
-                    chart.partner_counts.dec(player, partner);
-                }
-                if left > 0 {
-                    chart.opponent_counts.dec(player, left);
-                    chart.opponent_counts.dec(player, right);
-                }
+                let table = &chart.rounds[round][seat / 4 * 4..];
+                match seat % 4 {
+                    1 => {
+                        let partner = table[0];
+                        chart.partner_counts.dec(player, partner);
+                    }
+                    2 => {
+                        let (left, right) = (table[0], table[1]);
+                        chart.opponent_counts.dec(player, left);
+                        chart.opponent_counts.dec(player, right);
+                    }
+                    3 => {
+                        let (left, right, partner) = (table[0], table[1], table[2]);
+                        chart.partner_counts.dec(player, partner);
+                        chart.opponent_counts.dec(player, left);
+                        chart.opponent_counts.dec(player, right);
+                    }
+                    _ => {} // nothing to undo
+                };
             } else if round > 1 {
                 // try the next stack
                 round -= 1;
-                if last_table_options.last().map(|x| x.0).unwrap_or(0) == round {
-                    let [a, b, c, d] = &chart.rounds[round].last_chunk::<4>().unwrap();
+                if last_table_stack.peek_round() == round {
+                    let table = &chart.rounds[round][SEATS - 4..];
+                    let (a, b, c, d) = (table[0], table[1], table[2], table[3]);
 
                     // update counts
-                    chart.partner_counts.dec(*a, *b);
-                    chart.partner_counts.dec(*c, *d);
-                    chart.opponent_counts.dec(*a, *c);
-                    chart.opponent_counts.dec(*a, *d);
-                    chart.opponent_counts.dec(*b, *c);
-                    chart.opponent_counts.dec(*b, *d);
+                    chart.partner_counts.dec(a, b);
+                    chart.partner_counts.dec(c, d);
+                    chart.opponent_counts.dec(a, c);
+                    chart.opponent_counts.dec(a, d);
+                    chart.opponent_counts.dec(b, c);
+                    chart.opponent_counts.dec(b, d);
 
-                    let (_, table @ [a, b, c, d]) = last_table_options.pop().unwrap();
+                    let table @ [a, b, c, d] = last_table_stack.pop();
 
                     // this could be more clever
                     chart.partner_counts.inc(a, b);
@@ -205,22 +250,23 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                     // back up to last seat
 
                     // Update last table
-                    let [a, b, c, d] = &chart.rounds[round].last_chunk::<4>().unwrap();
+                    let table = &chart.rounds[round][SEATS - 4..];
+                    let (a, b, c, d) = (table[0], table[1], table[2], table[3]);
 
                     // update counts
-                    chart.partner_counts.dec(*a, *b);
-                    chart.partner_counts.dec(*c, *d);
-                    chart.opponent_counts.dec(*a, *c);
-                    chart.opponent_counts.dec(*a, *d);
-                    chart.opponent_counts.dec(*b, *c);
-                    chart.opponent_counts.dec(*b, *d);
+                    chart.partner_counts.dec(a, b);
+                    chart.partner_counts.dec(c, d);
+                    chart.opponent_counts.dec(a, c);
+                    chart.opponent_counts.dec(a, d);
+                    chart.opponent_counts.dec(b, c);
+                    chart.opponent_counts.dec(b, d);
 
                     // update SEATS-5 player
                     seat = SEATS - 5;
-                    player = chart.rounds[round][seat];
-                    let partner = chart.rounds[round][seat - 1];
-                    let left = chart.rounds[round][seat - 2];
-                    let right = chart.rounds[round][seat - 3];
+                    let previous_table = &chart.rounds[round][SEATS - 8..];
+                    let (right, left, partner) =
+                        (previous_table[0], previous_table[1], previous_table[2]);
+                    player = previous_table[3];
 
                     chart.partner_counts.dec(player, partner);
                     chart.opponent_counts.dec(player, left);
@@ -270,23 +316,56 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             // here player is 1 to 12
         }
 
-        let (_, partner, (left, right)) = get_table_players_unordered(seat, &chart.rounds[round]);
+        let table = &chart.rounds[round][seat / 4 * 4..];
+        let table_seat = seat % 4;
+        let meets_criteria = match table_seat {
+            1 => {
+                let partner = table[0];
 
-        if (partner == 0 || chart.partner_counts.get(player, partner) < 1)
-            && (left == 0
-                || (chart.opponent_counts.get(player, left) < 2
-                    && chart.opponent_counts.get(player, right) < 2))
-        {
+                chart.partner_counts.get(player, partner) < 1
+            }
+            2 => {
+                let (left, right) = (table[0], table[1]);
+
+                chart.opponent_counts.get(player, left) < 2
+                    && chart.opponent_counts.get(player, right) < 2
+            }
+            3 => {
+                let (left, right, partner) = (table[0], table[1], table[2]);
+
+                chart.partner_counts.get(player, partner) < 1
+                    && chart.opponent_counts.get(player, left) < 2
+                    && chart.opponent_counts.get(player, right) < 2
+            }
+            _ => true,
+        };
+
+        if meets_criteria {
             // valid player assignment, go to next seat
             chart.rounds[round][seat] = player;
 
-            if partner > 0 {
-                chart.partner_counts.inc(player, partner);
-            }
-            if left > 0 {
-                chart.opponent_counts.inc(player, left);
-                chart.opponent_counts.inc(player, right);
-            }
+            let table = &chart.rounds[round][seat / 4 * 4..];
+            match table_seat {
+                1 => {
+                    let partner = table[0];
+
+                    chart.partner_counts.inc(player, partner);
+                }
+                2 => {
+                    let (left, right) = (table[0], table[1]);
+
+                    chart.opponent_counts.inc(player, left);
+                    chart.opponent_counts.inc(player, right);
+                }
+                3 => {
+                    let (left, right, partner) = (table[0], table[1], table[2]);
+
+                    chart.partner_counts.inc(player, partner);
+                    chart.opponent_counts.inc(player, left);
+                    chart.opponent_counts.inc(player, right);
+                }
+                _ => {}
+            };
 
             seat += 1;
             round_players[player as usize - 1] = true;
@@ -294,11 +373,12 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             if seat == SEATS - 4 {
                 // special behavior
                 // should I check this before assignmment? yes
-                get_table_options(round, &chart, &round_players, &mut last_table_options);
+                get_table_options(round, &chart, &round_players, &mut last_table_stack);
 
                 // is there at least one table?
-                if last_table_options.last().map(|x| x.0).unwrap_or(0) == round {
-                    let (_, table @ [a, b, c, d]) = last_table_options.pop().unwrap();
+                if last_table_stack.peek_round() == round {
+                    let table @ [a, b, c, d] = last_table_stack.pop();
+
                     // assign table
                     chart.rounds[round][SEATS - 4..].copy_from_slice(&table);
 
@@ -337,6 +417,9 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
                     chart.rounds[round][seat] = 0;
 
+                    let table = &chart.rounds[round][seat / 4 * 4..];
+                    let (left, right, partner) = (table[0], table[1], table[2]);
+
                     chart.partner_counts.dec(player, partner);
                     chart.opponent_counts.dec(player, left);
                     chart.opponent_counts.dec(player, right);
@@ -364,25 +447,25 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 // pairs: ab, ac, ad, cd, bd, bc (all of them)
 // opps: ac, ad, ab, bc, bd, cd (only 6)
 // so thats 12 looksup max
-fn get_table_options<const SEATS: usize, const ROUNDS: usize>(
+fn get_table_options<const SEATS: usize, const ROUNDS: usize, const SIZE: usize>(
     round: usize,
     chart: &Chart<SEATS, ROUNDS>,
     round_players: &[bool; SEATS],
-    table_options: &mut Vec<(usize, [Player; 4])>,
+    table_stack: &mut TableStack<SIZE>,
 ) {
-    // todo: make this push directly on the stack
-    // then the pop functionality could be identical
-    let players: Vec<Player> = round_players
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, &is)| if !is { Some(idx as Player + 1) } else { None })
-        .collect();
-
-    //assert!(players.len() == 4, "{:?} {:?}", round_players, players);
-
+    let mut player_idx = 0;
+    let mut players: [Player; 4] = [0; 4];
     let first_player_last_table = chart.rounds[round][SEATS - 4 - 4];
-    if players[0] < first_player_last_table {
-        return;
+    for (player, present) in round_players.iter().enumerate() {
+        if !*present {
+            if player_idx == 0 {
+                if player + 1 < first_player_last_table {
+                    return;
+                }
+            }
+            players[player_idx] = player + 1;
+            player_idx += 1;
+        }
     }
 
     let (a, b, c, d) = (players[0], players[1], players[2], players[3]);
@@ -397,7 +480,7 @@ fn get_table_options<const SEATS: usize, const ROUNDS: usize>(
         && (chart.opponent_counts.get(d, c) < 2)
     // 3
     {
-        table_options.push((round, [a, d, b, c]));
+        table_stack.push(round, [a, d, b, c]);
     }
 
     if (chart.partner_counts.get(a, c) < 1)
@@ -408,7 +491,7 @@ fn get_table_options<const SEATS: usize, const ROUNDS: usize>(
         && (chart.opponent_counts.get(c, d) < 2)
     // 3
     {
-        table_options.push((round, [a, c, b, d]));
+        table_stack.push(round, [a, c, b, d]);
     }
 
     if (chart.partner_counts.get(a, b) < 1)
@@ -419,7 +502,7 @@ fn get_table_options<const SEATS: usize, const ROUNDS: usize>(
         && (chart.opponent_counts.get(b, d) < 2)
     // 5
     {
-        table_options.push((round, [a, b, c, d]));
+        table_stack.push(round, [a, b, c, d]);
     }
 }
 
@@ -455,6 +538,11 @@ fn main() {
 //      31555_88425
 
 // Lets send it.  12 players 11 rounds.
+// The first tests at round 11 happened at
+// 383_00000_00000
+// That means it went through 383/822 = 46% of the normal iterations.
+// Unforunately it's still much slower per iteration, but I think it
+// makes up for it in descreased iterations
 
 // Despite being less than half the loop count, each loops
 // still takes a long time. I should consider how this could
