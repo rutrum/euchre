@@ -143,38 +143,36 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
     let mut loop_count: u64 = 0;
 
-    let max_player_per_seat: Vec<Player> = (0..SEATS)
-        .map(|seat| match seat {
-            0 => 1,
-            s if s % 2 == 1 => SEATS,
-            s if s % 4 == 2 => SEATS - 1,
-            s if s % 4 == 0 => SEATS - (SEATS / 4 - seat / 4) - 1,
-            _ => unreachable!(),
-        } as Player)
-        .collect();
+    // let max_player_per_seat: Vec<Player> = (0..SEATS)
+    //     .map(|seat| match seat {
+    //         0 => 1,
+    //         s if s % 2 == 1 => SEATS,
+    //         s if s % 4 == 2 => SEATS - 1,
+    //         s if s % 4 == 0 => SEATS - (SEATS / 4 - seat / 4) - 1,
+    //         _ => unreachable!(),
+    //     } as Player)
+    //     .collect();
 
-    print!("max player per seat: ");
-    max_player_per_seat.iter().for_each(|x| print!("{x} "));
-    println!();
+    let max_player_per_seat: [Player; 12] = [1, 12, 11, 12, 9, 12, 11, 12, 10, 12, 11, 12];
 
-    let mut loop_count_by_seat = [[0_u64; SEATS]; ROUNDS];
+    // let mut loop_count_by_seat = [[0_u64; SEATS]; ROUNDS];
 
     loop {
         // player at this point means "we just checked player"
         // "we plan on looking at player+1 next"
         loop_count += 1;
-        loop_count_by_seat[round][seat] += 1;
+        // loop_count_by_seat[round][seat] += 1;
 
-        if loop_count % 1_000_000_000 == 0 {
+        if cfg!(debug_assertions) && loop_count % 1_000_000_000 == 0 {
             println!("{loop_count}");
         }
 
-        if loop_count % 10_000_000_000 == 0 {
+        if loop_count % 100_000_000_000 == 0 {
             println!("Count: {loop_count}");
-            for r in loop_count_by_seat {
-                let s: u64 = r.iter().sum();
-                println!("{s}: {r:?}");
-            }
+            // for r in loop_count_by_seat {
+            //     let s: u64 = r.iter().sum();
+            //     println!("{s}: {r:?}");
+            // }
         }
 
         // what if I could check right here, or just know
@@ -402,10 +400,10 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
                     } else {
                         // winner?
                         println!("Final count: {loop_count}");
-                        for r in loop_count_by_seat {
-                            let s: u64 = r.iter().sum();
-                            println!("{s}: {r:?}");
-                        }
+                        // for r in loop_count_by_seat {
+                        //     let s: u64 = r.iter().sum();
+                        //     println!("{s}: {r:?}");
+                        // }
                         return Some(chart);
                     }
                 } else {
@@ -469,8 +467,6 @@ fn get_table_options<const SEATS: usize, const ROUNDS: usize, const SIZE: usize>
     }
 
     let (a, b, c, d) = (players[0], players[1], players[2], players[3]);
-
-    // does this produce the same results as the other algorithm?
 
     if (chart.partner_counts.get(a, d) < 1)
         && (chart.partner_counts.get(b, c) < 1)
@@ -583,3 +579,16 @@ fn main() {
 
 // last_chunk instead of manual variable assignment
 // same
+
+// lots of perf changes later including
+// * making my own stack
+// * simplifying conditions for checking paircounts
+// * taking most things off heap
+// using Vec<Player> as max_player_per_seat
+// 18.1s
+// hardcoding it with an array
+// 15.4s
+// Final time right before 2nd run was 16.0s
+
+// Unsafe code?
+// 17s?

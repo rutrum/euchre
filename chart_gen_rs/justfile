@@ -1,4 +1,8 @@
 default:
+    cargo build --bin search_memory
+    time cargo run --bin search_memory
+
+release:
     cargo build --bin search_memory --release
     time cargo run --bin search_memory --release 
 

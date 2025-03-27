@@ -22,7 +22,13 @@
           # rust
           cargo
           rustfmt
-          cargo-flamegraph # profiling?
+          rust-analyzer
+
+          # profiling
+          cargo-flamegraph
+          linuxPackages_latest.perf
+          hotspot # gui for perf.data
+          coz # different profiler
           
           # required for numpy
           stdenv.cc.cc
