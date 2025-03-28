@@ -107,7 +107,7 @@ impl<const SIZE: usize> TableStack<SIZE> {
         Self {
             rounds: [0; SIZE],
             tables: [[0; 4]; SIZE],
-            pointer: 0,
+            pointer: 1,
         }
     }
 
@@ -139,7 +139,7 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
     // 0 index represents round: 0 is null
     // 1-4 index are the four players
-    let mut last_table_stack = TableStack::<36>::new();
+    let mut last_table_stack = TableStack::<25>::new();
 
     let mut loop_count: u64 = 0;
 
@@ -155,24 +155,37 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
     let max_player_per_seat: [Player; 12] = [1, 12, 11, 12, 9, 12, 11, 12, 10, 12, 11, 12];
 
-    // let mut loop_count_by_seat = [[0_u64; SEATS]; ROUNDS];
+    #[cfg(debug_assertions)]
+    let mut loop_count_by_seat = [[0_u64; SEATS]; ROUNDS];
 
     loop {
         // player at this point means "we just checked player"
         // "we plan on looking at player+1 next"
         loop_count += 1;
-        // loop_count_by_seat[round][seat] += 1;
 
-        if cfg!(debug_assertions) && loop_count % 1_000_000_000 == 0 {
-            println!("{loop_count}");
+        #[cfg(debug_assertions)]
+        {
+            loop_count_by_seat[round][seat] += 1;
+        }
+
+        #[cfg(debug_assertions)]
+        {
+            if loop_count % 1_000_000_000 == 0 {
+                println!("{loop_count}");
+            }
         }
 
         if loop_count % 100_000_000_000 == 0 {
             println!("Count: {loop_count}");
-            // for r in loop_count_by_seat {
-            //     let s: u64 = r.iter().sum();
-            //     println!("{s}: {r:?}");
-            // }
+            println!("{chart}");
+
+            #[cfg(debug_assertions)]
+            {
+                for r in loop_count_by_seat {
+                    let s: u64 = r.iter().sum();
+                    println!("{s}: {r:?}");
+                }
+            }
         }
 
         // what if I could check right here, or just know
@@ -261,7 +274,7 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
 
                     // update SEATS-5 player
                     seat = SEATS - 5;
-                    let previous_table = &chart.rounds[round][SEATS - 8..];
+                    let previous_table = &chart.rounds[round][SEATS - 8..SEATS - 4];
                     let (right, left, partner) =
                         (previous_table[0], previous_table[1], previous_table[2]);
                     player = previous_table[3];
@@ -314,7 +327,9 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             // here player is 1 to 12
         }
 
-        let table = &chart.rounds[round][seat / 4 * 4..];
+        let table_num = seat / 4 * 4;
+        let table = &chart.rounds[round][table_num..table_num + 4];
+
         let table_seat = seat % 4;
         let meets_criteria = match table_seat {
             1 => {
@@ -342,7 +357,8 @@ fn dfs_loop<const SEATS: usize, const ROUNDS: usize>(
             // valid player assignment, go to next seat
             chart.rounds[round][seat] = player;
 
-            let table = &chart.rounds[round][seat / 4 * 4..];
+            let table_num = seat / 4 * 4;
+            let table = &chart.rounds[round][table_num..table_num + 4];
             match table_seat {
                 1 => {
                     let partner = table[0];
@@ -504,7 +520,7 @@ fn get_table_options<const SEATS: usize, const ROUNDS: usize, const SIZE: usize>
 
 fn main() {
     //let chart = Chart::<8, 7>::new();
-    let chart = Chart::<12, 9>::new();
+    let chart = Chart::<12, 11>::new();
     //let chart = Chart::<12, 10>::new();
     let new_chart = dfs_loop(chart).unwrap();
     println!("{new_chart}");
@@ -592,3 +608,13 @@ fn main() {
 
 // Unsafe code?
 // 17s?
+
+// There is a bug.  After loop 1490_00000_00000
+// I get index out of bounds: 36 but index 2^64
+// Somehow, I popped off the stack too much
+// I did this in peek_round
+// Of course, I didn't check if rounds was present or not
+// I can fix this by starting the pointer at 1, so the last
+// round always reads 0, which will be ignored
+// Now the pointer just starts at 1
+// Final time before 3rd run was 16.8s
